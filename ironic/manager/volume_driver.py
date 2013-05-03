@@ -20,12 +20,12 @@ import re
 
 from oslo.config import cfg
 
-from nova import context as nova_context
-from nova import exception
-from nova.openstack.common import importutils
-from nova.openstack.common import log as logging
-from nova import utils
-from nova.virt.baremetal import db as bmdb
+from ironic import context as nova_context
+from ironic import exception
+from ironic.openstack.common import importutils
+from ironic.openstack.common import log as logging
+from ironic import utils
+from ironic import db
 from nova.virt.libvirt import utils as libvirt_utils
 
 opts = [
@@ -39,15 +39,11 @@ opts = [
                help='iSCSI IQN prefix used in baremetal volume connections.'),
     ]
 
-baremetal_group = cfg.OptGroup(name='baremetal',
-                               title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_group)
-CONF.register_opts(opts, baremetal_group)
+CONF.register_opts(opts)
 
-CONF.import_opt('host', 'nova.netconf')
-CONF.import_opt('use_ipv6', 'nova.netconf')
+CONF.import_opt('host', 'ironic.netconf')
+CONF.import_opt('use_ipv6', 'ironic.netconf')
 CONF.import_opt('libvirt_volume_drivers', 'nova.virt.libvirt.driver')
 
 LOG = logging.getLogger(__name__)
@@ -55,7 +51,7 @@ LOG = logging.getLogger(__name__)
 
 def _get_baremetal_node_by_instance_uuid(instance_uuid):
     context = nova_context.get_admin_context()
-    return bmdb.bm_node_get_by_instance_uuid(context, instance_uuid)
+    return db.bm_node_get_by_instance_uuid(context, instance_uuid)
 
 
 def _create_iscsi_export_tgtadm(path, tid, iqn):
@@ -165,7 +161,7 @@ def _find_tid(iqn):
 
 def _get_iqn(instance_name, mountpoint):
     mp = mountpoint.replace('/', '-').strip('-')
-    iqn = '%s:%s-%s' % (CONF.baremetal.iscsi_iqn_prefix,
+    iqn = '%s:%s-%s' % (CONF.iscsi_iqn_prefix,
                         instance_name,
                         mp)
     return iqn
@@ -220,9 +216,9 @@ class LibvirtVolumeDriver(VolumeDriver):
     def attach_volume(self, connection_info, instance, mountpoint):
         node = _get_baremetal_node_by_instance_uuid(instance['uuid'])
         ctx = nova_context.get_admin_context()
-        pxe_ip = bmdb.bm_pxe_ip_get_by_bm_node_id(ctx, node['id'])
+        pxe_ip = db.bm_pxe_ip_get_by_bm_node_id(ctx, node['id'])
         if not pxe_ip:
-            if not CONF.baremetal.use_unsafe_iscsi:
+            if not CONF.use_unsafe_iscsi:
                 raise exception.NovaException(_(
                     'No fixed PXE IP is associated to %s') % instance['uuid'])
 
@@ -242,7 +238,7 @@ class LibvirtVolumeDriver(VolumeDriver):
             # instance's initiator ip, it allows any initiators
             # to connect to the volume. This means other bare-metal
             # instances that are not attached the volume can connect
-            # to the volume. Do not set CONF.baremetal.use_unsafe_iscsi
+            # to the volume. Do not set CONF.use_unsafe_iscsi
             # out of dev/test environments.
             # TODO(NTTdocomo): support CHAP
             _allow_iscsi_tgtadm(tid, 'ALL')

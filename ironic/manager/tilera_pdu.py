@@ -24,11 +24,11 @@ import time
 
 from oslo.config import cfg
 
-from nova import exception
-from nova.openstack.common import log as logging
-from nova import utils
-from nova.virt.baremetal import baremetal_states
-from nova.virt.baremetal import base
+from ironic import exception
+from ironic.openstack.common import log as logging
+from ironic import utils
+from ironic import states
+from ironic.manager import base
 
 opts = [
     cfg.StrOpt('tile_pdu_ip',
@@ -52,12 +52,8 @@ opts = [
                     'after tilera power operations'),
     ]
 
-baremetal_group = cfg.OptGroup(name='baremetal',
-                               title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_group)
-CONF.register_opts(opts, baremetal_group)
+CONF.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
 
@@ -98,56 +94,56 @@ class Pdu(base.PowerManager):
         changed. /tftpboot/pdu_mgr script handles power management of
         PDU (Power Distribution Unit).
         """
-        if mode == CONF.baremetal.tile_pdu_status:
+        if mode == CONF.tile_pdu_status:
             try:
                 utils.execute('ping', '-c1', self.address,
                        check_exit_code=True)
-                return CONF.baremetal.tile_pdu_on
+                return CONF.tile_pdu_on
             except exception.ProcessExecutionError:
-                return CONF.baremetal.tile_pdu_off
+                return CONF.tile_pdu_off
         else:
             try:
-                utils.execute(CONF.baremetal.tile_pdu_mgr,
-                              CONF.baremetal.tile_pdu_ip, mode)
-                time.sleep(CONF.baremetal.tile_power_wait)
+                utils.execute(CONF.tile_pdu_mgr,
+                              CONF.tile_pdu_ip, mode)
+                time.sleep(CONF.tile_power_wait)
                 return mode
             except exception.ProcessExecutionError:
                 LOG.exception(_("PDU failed"))
 
     def _is_power(self, state):
-        out_err = self._exec_pdutool(CONF.baremetal.tile_pdu_status)
+        out_err = self._exec_pdutool(CONF.tile_pdu_status)
         return out_err == state
 
     def _power_on(self):
         """Turn the power to this node ON."""
 
         try:
-            self._exec_pdutool(CONF.baremetal.tile_pdu_on)
-            if self._is_power(CONF.baremetal.tile_pdu_on):
-                self.state = baremetal_states.ACTIVE
+            self._exec_pdutool(CONF.tile_pdu_on)
+            if self._is_power(CONF.tile_pdu_on):
+                self.state = states.ACTIVE
             else:
-                self.state = baremetal_states.ERROR
+                self.state = states.ERROR
         except Exception:
-            self.state = baremetal_states.ERROR
+            self.state = states.ERROR
             LOG.exception(_("PDU power on failed"))
 
     def _power_off(self):
         """Turn the power to this node OFF."""
 
         try:
-            self._exec_pdutool(CONF.baremetal.tile_pdu_off)
-            if self._is_power(CONF.baremetal.tile_pdu_off):
-                self.state = baremetal_states.DELETED
+            self._exec_pdutool(CONF.tile_pdu_off)
+            if self._is_power(CONF.tile_pdu_off):
+                self.state = states.DELETED
             else:
-                self.state = baremetal_states.ERROR
+                self.state = states.ERROR
         except Exception:
-            self.state = baremetal_states.ERROR
+            self.state = states.ERROR
             LOG.exception(_("PDU power off failed"))
 
     def activate_node(self):
         """Turns the power to node ON."""
-        if (self._is_power(CONF.baremetal.tile_pdu_on)
-            and self.state == baremetal_states.ACTIVE):
+        if (self._is_power(CONF.tile_pdu_on)
+            and self.state == states.ACTIVE):
             LOG.warning(_("Activate node called, but node %s "
                           "is already active") % self.address)
         self._power_on()
@@ -165,7 +161,7 @@ class Pdu(base.PowerManager):
         return self.state
 
     def is_power_on(self):
-        return self._is_power(CONF.baremetal.tile_pdu_on)
+        return self._is_power(CONF.tile_pdu_on)
 
     def start_console(self):
         pass

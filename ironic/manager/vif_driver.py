@@ -15,10 +15,10 @@
 
 from oslo.config import cfg
 
-from nova import context
-from nova import exception
-from nova.openstack.common import log as logging
-from nova.virt.baremetal import db as bmdb
+from ironic import context as nova_context
+from ironic import exception
+from ironic.openstack.common import log as logging
+from ironic import db
 
 CONF = cfg.CONF
 
@@ -38,15 +38,15 @@ class BareMetalVIFDriver(object):
                   % {'uuid': instance['uuid'], 'vif': vif})
         network, mapping = vif
         vif_uuid = mapping['vif_uuid']
-        ctx = context.get_admin_context()
-        node = bmdb.bm_node_get_by_instance_uuid(ctx, instance['uuid'])
+        ctx = nova_context.get_admin_context()
+        node = db.bm_node_get_by_instance_uuid(ctx, instance['uuid'])
 
         # TODO(deva): optimize this database query
         #             this is just searching for a free physical interface
-        pifs = bmdb.bm_interface_get_all_by_bm_node_id(ctx, node['id'])
+        pifs = db.bm_interface_get_all_by_bm_node_id(ctx, node['id'])
         for pif in pifs:
             if not pif['vif_uuid']:
-                bmdb.bm_interface_set_vif_uuid(ctx, pif['id'], vif_uuid)
+                db.bm_interface_set_vif_uuid(ctx, pif['id'], vif_uuid)
                 LOG.debug(_("pif:%(id)s is plugged (vif_uuid=%(vif_uuid)s)")
                           % {'id': pif['id'], 'vif_uuid': vif_uuid})
                 self._after_plug(instance, network, mapping, pif)
@@ -64,10 +64,10 @@ class BareMetalVIFDriver(object):
                   {'uuid': instance['uuid'], 'vif': vif})
         network, mapping = vif
         vif_uuid = mapping['vif_uuid']
-        ctx = context.get_admin_context()
+        ctx = nova_context.get_admin_context()
         try:
-            pif = bmdb.bm_interface_get_by_vif_uuid(ctx, vif_uuid)
-            bmdb.bm_interface_set_vif_uuid(ctx, pif['id'], None)
+            pif = db.bm_interface_get_by_vif_uuid(ctx, vif_uuid)
+            db.bm_interface_set_vif_uuid(ctx, pif['id'], None)
             LOG.debug(_("pif:%(id)s is unplugged (vif_uuid=%(vif_uuid)s)")
                       % {'id': pif['id'], 'vif_uuid': vif_uuid})
             self._after_unplug(instance, network, mapping, pif)

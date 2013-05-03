@@ -16,7 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova.virt.baremetal import baremetal_states
+from ironic import states
 
 
 class NodeDriver(object):
@@ -51,19 +51,19 @@ class NodeDriver(object):
 class PowerManager(object):
 
     def __init__(self, **kwargs):
-        self.state = baremetal_states.DELETED
+        self.state = states.DELETED
         pass
 
     def activate_node(self):
-        self.state = baremetal_states.ACTIVE
+        self.state = states.ACTIVE
         return self.state
 
     def reboot_node(self):
-        self.state = baremetal_states.ACTIVE
+        self.state = states.ACTIVE
         return self.state
 
     def deactivate_node(self):
-        self.state = baremetal_states.DELETED
+        self.state = states.DELETED
         return self.state
 
     def is_power_on(self):

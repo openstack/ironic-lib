@@ -16,7 +16,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova.virt.baremetal import base
+from ironic.manager import base
 from nova.virt import firewall
 
 

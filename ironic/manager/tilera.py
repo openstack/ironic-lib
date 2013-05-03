@@ -25,32 +25,27 @@ import os
 from oslo.config import cfg
 
 from nova.compute import instance_types
-from nova import exception
-from nova.openstack.common.db import exception as db_exc
-from nova.openstack.common import fileutils
-from nova.openstack.common import log as logging
-from nova import utils
-from nova.virt.baremetal import baremetal_states
-from nova.virt.baremetal import base
-from nova.virt.baremetal import db
-from nova.virt.baremetal import utils as bm_utils
+from ironic import exception
+from ironic.openstack.common.db import exception as db_exc
+from ironic.openstack.common import fileutils
+from ironic.openstack.common import log as logging
+from ironic import utils
+from ironic import states
+from ironic.manager import base
+from ironic import db
+from ironic import utils as bm_utils
 
 tilera_opts = [
     cfg.StrOpt('net_config_template',
-               default='$pybasedir/nova/virt/baremetal/'
-                            'net-dhcp.ubuntu.template',
+               default='$pybasedir/ironic/net-dhcp.ubuntu.template',
                help='Template file for injected network config'),
     ]
 
 LOG = logging.getLogger(__name__)
 
-baremetal_group = cfg.OptGroup(name='baremetal',
-                               title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_group)
-CONF.register_opts(tilera_opts, baremetal_group)
-CONF.import_opt('use_ipv6', 'nova.netconf')
+CONF.register_opts(tilera_opts)
+CONF.import_opt('use_ipv6', 'ironic.netconf')
 
 CHEETAH = None
 
@@ -91,7 +86,7 @@ def build_network_config(network_info):
 
     cheetah = _get_cheetah()
     network_config = str(cheetah(
-            open(CONF.baremetal.net_config_template).read(),
+            open(CONF.net_config_template).read(),
             searchList=[
                 {'interfaces': interfaces,
                  'use_ipv6': CONF.use_ipv6,
@@ -113,7 +108,7 @@ def get_image_file_path(instance):
 def get_tilera_nfs_path(node_id):
     """Generate the path for an instances Tilera nfs."""
     tilera_nfs_dir = "fs_" + str(node_id)
-    return os.path.join(CONF.baremetal.tftp_root, tilera_nfs_dir)
+    return os.path.join(CONF.tftp_root, tilera_nfs_dir)
 
 
 def get_partition_sizes(instance):
@@ -147,7 +142,7 @@ def get_tftp_image_info(instance):
         if not uuid:
             missing_labels.append(label)
         else:
-            image_info[label][1] = os.path.join(CONF.baremetal.tftp_root,
+            image_info[label][1] = os.path.join(CONF.tftp_root,
                             instance['uuid'], label)
     if missing_labels:
         raise exception.NovaException(_(
@@ -173,7 +168,7 @@ class Tilera(base.NodeDriver):
     def _cache_tftp_images(self, context, instance, image_info):
         """Fetch the necessary kernels and ramdisks for the instance."""
         fileutils.ensure_tree(
-                os.path.join(CONF.baremetal.tftp_root, instance['uuid']))
+                os.path.join(CONF.tftp_root, instance['uuid']))
 
         LOG.debug(_("Fetching kernel and ramdisk for instance %s") %
                         instance['name'])
@@ -195,7 +190,7 @@ class Tilera(base.NodeDriver):
         to the appropriate places on local disk.
 
         Both sets of kernel and ramdisk are needed for Tilera booting, so these
-        are stored under CONF.baremetal.tftp_root.
+        are stored under CONF.tftp_root.
 
         At present, the AMI is cached and certain files are injected.
         Debian/ubuntu-specific assumptions are made regarding the injected
@@ -335,10 +330,10 @@ class Tilera(base.NodeDriver):
         except db_exc.DBError:
             pass
 
-        if os.path.exists(os.path.join(CONF.baremetal.tftp_root,
+        if os.path.exists(os.path.join(CONF.tftp_root,
                 instance['uuid'])):
             bm_utils.rmtree_without_raise(
-                os.path.join(CONF.baremetal.tftp_root, instance['uuid']))
+                os.path.join(CONF.tftp_root, instance['uuid']))
 
     def _iptables_set(self, node_ip, user_data):
         """Sets security setting (iptables:port) if needed.
@@ -346,7 +341,7 @@ class Tilera(base.NodeDriver):
         iptables -A INPUT -p tcp ! -s $IP --dport $PORT -j DROP
         /tftpboot/iptables_rule script sets iptables rule on the given node.
         """
-        rule_path = CONF.baremetal.tftp_root + "/iptables_rule"
+        rule_path = CONF.tftp_root + "/iptables_rule"
         if user_data is not None:
             open_ip = base64.b64decode(user_data)
             utils.execute(rule_path, node_ip, open_ip)
@@ -363,14 +358,14 @@ class Tilera(base.NodeDriver):
                                     " while waiting for deploy of %s")
 
             status = row.get('task_state')
-            if (status == baremetal_states.DEPLOYING and
+            if (status == states.DEPLOYING and
                 locals['started'] is False):
                 LOG.info(_('Tilera deploy started for instance %s')
                            % instance['uuid'])
                 locals['started'] = True
-            elif status in (baremetal_states.DEPLOYDONE,
-                            baremetal_states.BUILDING,
-                            baremetal_states.ACTIVE):
+            elif status in (states.DEPLOYDONE,
+                            states.BUILDING,
+                            states.ACTIVE):
                 LOG.info(_("Tilera deploy completed for instance %s")
                            % instance['uuid'])
                 node_ip = node['pm_address']
@@ -381,7 +376,7 @@ class Tilera(base.NodeDriver):
                     self.deactivate_bootloader(context, node, instance)
                     raise exception.NovaException(_("Node is "
                           "unknown error state."))
-            elif status == baremetal_states.DEPLOYFAIL:
+            elif status == states.DEPLOYFAIL:
                 locals['error'] = _("Tilera deploy failed for instance %s")
         except exception.NodeNotFound:
                 locals['error'] = _("Baremetal node deleted while waiting "

@@ -19,14 +19,14 @@
 
 from oslo.config import cfg
 
-from nova import context as nova_context
-from nova import exception
-from nova.openstack.common import importutils
-from nova.openstack.common import log as logging
-from nova import utils
-from nova.virt.baremetal import baremetal_states
-from nova.virt.baremetal import base
-from nova.virt.baremetal import db
+from ironic import context as nova_context 
+from ironic import exception
+from ironic.openstack.common import importutils
+from ironic.openstack.common import log as logging
+from ironic import utils
+from ironic import states
+from ironic.manager import base
+from ironic import db
 import nova.virt.powervm.common as connection
 
 opts = [
@@ -51,12 +51,8 @@ opts = [
 
 ]
 
-baremetal_vp = cfg.OptGroup(name='baremetal',
-                            title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_vp)
-CONF.register_opts(opts, baremetal_vp)
+CONF.register_opts(opts)
 
 _conn = None
 _virtual_power_settings = None
@@ -89,9 +85,9 @@ class VirtualPowerManager(base.PowerManager):
 
         if _cmds is None:
             LOG.debug("Setting up %s commands." %
-                    CONF.baremetal.virtual_power_type)
-            _vpc = 'nova.virt.baremetal.virtual_power_driver_settings.%s' % \
-                    CONF.baremetal.virtual_power_type
+                    CONF.virtual_power_type)
+            _vpc = 'ironic.virtual_power_driver_settings.%s' % \
+                    CONF.virtual_power_type
             _cmds = importutils.import_class(_vpc)
         self._vp_cmd = _cmds()
         self.connection_data = _conn
@@ -106,26 +102,26 @@ class VirtualPowerManager(base.PowerManager):
         self.state = None
 
     def _get_conn(self):
-        if not CONF.baremetal.virtual_power_ssh_host:
+        if not CONF.virtual_power_ssh_host:
             raise exception.NovaException(
                 _('virtual_power_ssh_host not defined. Can not Start'))
 
-        if not CONF.baremetal.virtual_power_host_user:
+        if not CONF.virtual_power_host_user:
             raise exception.NovaException(
                 _('virtual_power_host_user not defined. Can not Start'))
 
-        if not CONF.baremetal.virtual_power_host_pass:
+        if not CONF.virtual_power_host_pass:
             # it is ok to not have a password if you have a keyfile
-            if CONF.baremetal.virtual_power_host_key is None:
+            if CONF.virtual_power_host_key is None:
                 raise exception.NovaException(
                     _('virtual_power_host_pass/key not set. Can not Start'))
 
         _conn = connection.Connection(
-            CONF.baremetal.virtual_power_ssh_host,
-            CONF.baremetal.virtual_power_host_user,
-            CONF.baremetal.virtual_power_host_pass,
-            CONF.baremetal.virtual_power_ssh_port,
-            CONF.baremetal.virtual_power_host_key)
+            CONF.virtual_power_ssh_host,
+            CONF.virtual_power_host_user,
+            CONF.virtual_power_host_pass,
+            CONF.virtual_power_ssh_port,
+            CONF.virtual_power_host_key)
         return _conn
 
     def _set_connection(self):
@@ -163,9 +159,9 @@ class VirtualPowerManager(base.PowerManager):
             self._run_command(cmd)
 
         if self.is_power_on():
-            self.state = baremetal_states.ACTIVE
+            self.state = states.ACTIVE
         else:
-            self.state = baremetal_states.ERROR
+            self.state = states.ERROR
         return self.state
 
     def reboot_node(self):
@@ -174,9 +170,9 @@ class VirtualPowerManager(base.PowerManager):
             cmd = self._vp_cmd.reboot_cmd
             self._run_command(cmd)
         if self.is_power_on():
-            self.state = baremetal_states.ACTIVE
+            self.state = states.ACTIVE
         else:
-            self.state = baremetal_states.ERROR
+            self.state = states.ERROR
         return self.state
 
     def deactivate_node(self):
@@ -187,9 +183,9 @@ class VirtualPowerManager(base.PowerManager):
                 self._run_command(cmd)
 
         if self.is_power_on():
-            self.state = baremetal_states.ERROR
+            self.state = states.ERROR
         else:
-            self.state = baremetal_states.DELETED
+            self.state = states.DELETED
         return self.state
 
     def is_power_on(self):

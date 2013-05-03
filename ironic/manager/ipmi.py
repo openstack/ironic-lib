@@ -27,14 +27,14 @@ import tempfile
 
 from oslo.config import cfg
 
-from nova import exception
-from nova.openstack.common import log as logging
-from nova.openstack.common import loopingcall
+from ironic import exception
+from ironic.openstack.common import log as logging
+from ironic.openstack.common import loopingcall
 from nova import paths
-from nova import utils
-from nova.virt.baremetal import baremetal_states
-from nova.virt.baremetal import base
-from nova.virt.baremetal import utils as bm_utils
+from ironic import utils
+from ironic import states
+from ironic.manager import base
+from ironic import utils as bm_utils
 
 opts = [
     cfg.StrOpt('terminal',
@@ -51,12 +51,8 @@ opts = [
                help='maximal number of retries for IPMI operations'),
     ]
 
-baremetal_group = cfg.OptGroup(name='baremetal',
-                               title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_group)
-CONF.register_opts(opts, baremetal_group)
+CONF.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
 
@@ -71,7 +67,7 @@ def _make_password_file(password):
 
 def _get_console_pid_path(node_id):
     name = "%s.pid" % node_id
-    path = os.path.join(CONF.baremetal.terminal_pid_dir, name)
+    path = os.path.join(CONF.terminal_pid_dir, name)
     return path
 
 
@@ -149,10 +145,10 @@ class IPMI(base.PowerManager):
             """Called at an interval until the node's power is on."""
 
             if self._is_power("on"):
-                self.state = baremetal_states.ACTIVE
+                self.state = states.ACTIVE
                 raise loopingcall.LoopingCallDone()
-            if self.retries > CONF.baremetal.ipmi_power_retry:
-                self.state = baremetal_states.ERROR
+            if self.retries > CONF.ipmi_power_retry:
+                self.state = states.ERROR
                 raise loopingcall.LoopingCallDone()
             try:
                 self.retries += 1
@@ -171,10 +167,10 @@ class IPMI(base.PowerManager):
             """Called at an interval until the node's power is off."""
 
             if self._is_power("off"):
-                self.state = baremetal_states.DELETED
+                self.state = states.DELETED
                 raise loopingcall.LoopingCallDone()
-            if self.retries > CONF.baremetal.ipmi_power_retry:
-                self.state = baremetal_states.ERROR
+            if self.retries > CONF.ipmi_power_retry:
+                self.state = states.ERROR
                 raise loopingcall.LoopingCallDone()
             try:
                 self.retries += 1
@@ -194,7 +190,7 @@ class IPMI(base.PowerManager):
 
     def activate_node(self):
         """Turns the power to node ON."""
-        if self._is_power("on") and self.state == baremetal_states.ACTIVE:
+        if self._is_power("on") and self.state == states.ACTIVE:
             LOG.warning(_("Activate node called, but node %s "
                           "is already active") % self.address)
         self._set_pxe_for_next_boot()
@@ -220,10 +216,10 @@ class IPMI(base.PowerManager):
         if not self.port:
             return
         args = []
-        args.append(CONF.baremetal.terminal)
-        if CONF.baremetal.terminal_cert_dir:
+        args.append(CONF.terminal)
+        if CONF.terminal_cert_dir:
             args.append("-c")
-            args.append(CONF.baremetal.terminal_cert_dir)
+            args.append(CONF.terminal_cert_dir)
         else:
             args.append("-t")
         args.append("-p")

@@ -26,16 +26,16 @@ import os
 from oslo.config import cfg
 
 from nova.compute import instance_types
-from nova import exception
-from nova.openstack.common.db import exception as db_exc
-from nova.openstack.common import fileutils
-from nova.openstack.common import log as logging
-from nova.openstack.common import loopingcall
-from nova.openstack.common import timeutils
-from nova.virt.baremetal import baremetal_states
-from nova.virt.baremetal import base
-from nova.virt.baremetal import db
-from nova.virt.baremetal import utils as bm_utils
+from ironic import exception
+from ironic.openstack.common.db import exception as db_exc
+from ironic.openstack.common import fileutils
+from ironic.openstack.common import log as logging
+from ironic.openstack.common import loopingcall
+from ironic.openstack.common import timeutils
+from ironic import states
+from ironic.manager import base
+from ironic import db
+from ironic import utils as bm_utils
 
 pxe_opts = [
     cfg.StrOpt('deploy_kernel',
@@ -43,13 +43,12 @@ pxe_opts = [
     cfg.StrOpt('deploy_ramdisk',
                help='Default ramdisk image ID used in deployment phase'),
     cfg.StrOpt('net_config_template',
-               default='$pybasedir/nova/virt/baremetal/'
-                            'net-dhcp.ubuntu.template',
+               default='$pybasedir/ironic/net-dhcp.ubuntu.template',
                help='Template file for injected network config'),
     cfg.StrOpt('pxe_append_params',
                help='additional append parameters for baremetal PXE boot'),
     cfg.StrOpt('pxe_config_template',
-               default='$pybasedir/nova/virt/baremetal/pxe_config.template',
+               default='$pybasedir/ironic/pxe_config.template',
                help='Template file for PXE configuration'),
     cfg.IntOpt('pxe_deploy_timeout',
                 help='Timeout for PXE deployments. Default: 0 (unlimited)',
@@ -58,13 +57,9 @@ pxe_opts = [
 
 LOG = logging.getLogger(__name__)
 
-baremetal_group = cfg.OptGroup(name='baremetal',
-                               title='Baremetal Options')
-
 CONF = cfg.CONF
-CONF.register_group(baremetal_group)
-CONF.register_opts(pxe_opts, baremetal_group)
-CONF.import_opt('use_ipv6', 'nova.netconf')
+CONF.register_opts(pxe_opts)
+CONF.import_opt('use_ipv6', 'ironic.netconf')
 
 CHEETAH = None
 
@@ -98,11 +93,11 @@ def build_pxe_config(deployment_id, deployment_key, deployment_iscsi_iqn,
             'deployment_ari_path': deployment_ari_path,
             'aki_path': aki_path,
             'ari_path': ari_path,
-            'pxe_append_params': CONF.baremetal.pxe_append_params,
+            'pxe_append_params': CONF.pxe_append_params,
             }
     cheetah = _get_cheetah()
     pxe_config = str(cheetah(
-            open(CONF.baremetal.pxe_config_template).read(),
+            open(CONF.pxe_config_template).read(),
             searchList=[{'pxe_options': pxe_options,
                          'ROOT': '${ROOT}',
             }]))
@@ -139,7 +134,7 @@ def build_network_config(network_info):
 
     cheetah = _get_cheetah()
     network_config = str(cheetah(
-            open(CONF.baremetal.net_config_template).read(),
+            open(CONF.net_config_template).read(),
             searchList=[
                 {'interfaces': interfaces,
                  'use_ipv6': CONF.use_ipv6,
@@ -150,12 +145,12 @@ def build_network_config(network_info):
 
 def get_deploy_aki_id(instance_type):
     return instance_type.get('extra_specs', {}).\
-            get('baremetal:deploy_kernel_id', CONF.baremetal.deploy_kernel)
+            get('baremetal:deploy_kernel_id', CONF.deploy_kernel)
 
 
 def get_deploy_ari_id(instance_type):
     return instance_type.get('extra_specs', {}).\
-            get('baremetal:deploy_ramdisk_id', CONF.baremetal.deploy_ramdisk)
+            get('baremetal:deploy_ramdisk_id', CONF.deploy_ramdisk)
 
 
 def get_image_dir_path(instance):
@@ -170,7 +165,7 @@ def get_image_file_path(instance):
 
 def get_pxe_config_file_path(instance):
     """Generate the path for an instances PXE config file."""
-    return os.path.join(CONF.baremetal.tftp_root, instance['uuid'], 'config')
+    return os.path.join(CONF.tftp_root, instance['uuid'], 'config')
 
 
 def get_partition_sizes(instance):
@@ -190,7 +185,7 @@ def get_partition_sizes(instance):
 def get_pxe_mac_path(mac):
     """Convert a MAC address into a PXE config file name."""
     return os.path.join(
-            CONF.baremetal.tftp_root,
+            CONF.tftp_root,
             'pxelinux.cfg',
             "01-" + mac.replace(":", "-").lower()
         )
@@ -225,7 +220,7 @@ def get_tftp_image_info(instance, instance_type):
         if not uuid:
             missing_labels.append(label)
         else:
-            image_info[label][1] = os.path.join(CONF.baremetal.tftp_root,
+            image_info[label][1] = os.path.join(CONF.tftp_root,
                             instance['uuid'], label)
     if missing_labels:
         raise exception.NovaException(_(
@@ -250,7 +245,7 @@ class PXE(base.NodeDriver):
     def _cache_tftp_images(self, context, instance, image_info):
         """Fetch the necessary kernels and ramdisks for the instance."""
         fileutils.ensure_tree(
-                os.path.join(CONF.baremetal.tftp_root, instance['uuid']))
+                os.path.join(CONF.tftp_root, instance['uuid']))
 
         LOG.debug(_("Fetching kernel and ramdisk for instance %s") %
                         instance['name'])
@@ -272,7 +267,7 @@ class PXE(base.NodeDriver):
         to the appropriate places on local disk.
 
         Both sets of kernel and ramdisk are needed for PXE booting, so these
-        are stored under CONF.baremetal.tftp_root.
+        are stored under CONF.tftp_root.
 
         At present, the AMI is cached and certain files are injected.
         Debian/ubuntu-specific assumptions are made regarding the injected
@@ -444,7 +439,7 @@ class PXE(base.NodeDriver):
                 bm_utils.unlink_without_raise(get_pxe_mac_path(mac))
 
         bm_utils.rmtree_without_raise(
-                os.path.join(CONF.baremetal.tftp_root, instance['uuid']))
+                os.path.join(CONF.tftp_root, instance['uuid']))
 
     def activate_node(self, context, node, instance):
         """Wait for PXE deployment to complete."""
@@ -461,23 +456,23 @@ class PXE(base.NodeDriver):
                     raise loopingcall.LoopingCallDone()
 
                 status = row.get('task_state')
-                if (status == baremetal_states.DEPLOYING
+                if (status == states.DEPLOYING
                         and locals['started'] is False):
                     LOG.info(_("PXE deploy started for instance %s")
                                 % instance['uuid'])
                     locals['started'] = True
-                elif status in (baremetal_states.DEPLOYDONE,
-                                baremetal_states.ACTIVE):
+                elif status in (states.DEPLOYDONE,
+                                states.ACTIVE):
                     LOG.info(_("PXE deploy completed for instance %s")
                                 % instance['uuid'])
                     raise loopingcall.LoopingCallDone()
-                elif status == baremetal_states.DEPLOYFAIL:
+                elif status == states.DEPLOYFAIL:
                     locals['error'] = _("PXE deploy failed for instance %s")
             except exception.NodeNotFound:
                 locals['error'] = _("Baremetal node deleted while waiting "
                                     "for deployment of instance %s")
 
-            if (CONF.baremetal.pxe_deploy_timeout and
+            if (CONF.pxe_deploy_timeout and
                     timeutils.utcnow() > expiration):
                 locals['error'] = _("Timeout reached while waiting for "
                                      "PXE deploy of instance %s")
@@ -485,7 +480,7 @@ class PXE(base.NodeDriver):
                 raise loopingcall.LoopingCallDone()
 
         expiration = timeutils.utcnow() + datetime.timedelta(
-                            seconds=CONF.baremetal.pxe_deploy_timeout)
+                            seconds=CONF.pxe_deploy_timeout)
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_deploy)
         timer.start(interval=1).wait()
 
