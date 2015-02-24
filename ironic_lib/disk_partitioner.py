@@ -13,17 +13,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import logging
 import re
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
 
-from ironic.common import exception
-from ironic.common.i18n import _
-from ironic.common.i18n import _LW
-from ironic.common import utils
-from ironic.openstack.common import log as logging
-from ironic.openstack.common import loopingcall
+from ironic_lib.openstack.common._i18n import _
+from ironic_lib.openstack.common._i18n import _LW
+from ironic_lib.openstack.common import loopingcall
+
+from ironic_lib import exception
+from ironic_lib import utils
+
 
 opts = [
     cfg.IntOpt('check_device_interval',
@@ -38,6 +40,9 @@ opts = [
                     'not accessed by another process. If the device is still '
                     'busy after that, the disk partitioning will be treated as'
                     ' having failed.'),
+    cfg.StrOpt('dd_block_size',
+               default='1M',
+               help='Block size to use when writing to the nodes disk.'),
 ]
 
 CONF = cfg.CONF
@@ -157,8 +162,8 @@ class DiskPartitioner(object):
         max_retries = CONF.disk_partitioner.check_device_max_retries
 
         timer = loopingcall.FixedIntervalLoopingCall(
-                    self._wait_for_disk_to_become_available,
-                    retries, max_retries, pids, fuser_err)
+            self._wait_for_disk_to_become_available,
+            retries, max_retries, pids, fuser_err)
         timer.start(interval=interval).wait()
 
         if retries[0] > max_retries:
@@ -174,36 +179,3 @@ class DiskPartitioner(object):
                       'exited with "%(fuser_err)s". Time out waiting for '
                       'completion.')
                     % {'device': self._device, 'fuser_err': fuser_err[0]})
-
-
-_PARTED_PRINT_RE = re.compile(r"^\d+:([\d\.]+)MiB:"
-                              "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
-
-
-def list_partitions(device):
-    """Get partitions information from given device.
-
-    :param device: The device path.
-    :returns: list of dictionaries (one per partition) with keys:
-              start, end, size (in MiB), filesystem, flags
-    """
-    output = utils.execute(
-        'parted', '-s', '-m', device, 'unit', 'MiB', 'print',
-        use_standard_locale=True)[0]
-    lines = [line for line in output.split('\n') if line.strip()][2:]
-    # Example of line: 1:1.00MiB:501MiB:500MiB:ext4::boot
-    fields = ('start', 'end', 'size', 'filesystem', 'flags')
-    result = []
-    for line in lines:
-        match = _PARTED_PRINT_RE.match(line)
-        if match is None:
-            LOG.warn(_LW("Partition information from parted for device "
-                         "%(device)s does not match "
-                         "expected format: %(line)s"),
-                     dict(device=device, line=line))
-            continue
-        # Cast int fields to ints (some are floats and we round them down)
-        groups = [int(float(x)) if i < 3 else x
-                  for i, x in enumerate(match.groups())]
-        result.append(dict(zip(fields, groups)))
-    return result

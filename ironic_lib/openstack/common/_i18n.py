@@ -24,7 +24,7 @@ try:
     # repository. It is OK to have more than one translation function
     # using the same domain, since there will still only be one message
     # catalog.
-    _translators = oslo.i18n.TranslatorFactory(domain='ironic')
+    _translators = oslo.i18n.TranslatorFactory(domain='ironic_lib')
 
     # The primary translation function using the well-known name "_"
     _ = _translators.primary

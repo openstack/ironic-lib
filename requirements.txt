@@ -1,38 +1,21 @@
 # The order of packages is significant, because pip processes them in the order
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
+
 pbr>=0.6,!=0.7,<1.0
-SQLAlchemy>=0.9.7,<=0.9.99
-alembic>=0.7.2
+argparse
 eventlet>=0.16.1
-lxml>=2.3
-WebOb>=1.2.3
 greenlet>=0.3.2
-sqlalchemy-migrate>=0.9.1,!=0.9.2
-netaddr>=0.7.12
-paramiko>=1.13.0
-iso8601>=0.1.9
-python-neutronclient>=2.3.6,<3
-python-glanceclient>=0.15.0
-python-keystoneclient>=1.1.0
-python-swiftclient>=2.2.0
-stevedore>=1.1.0  # Apache-2.0
-pysendfile==2.0.0
-websockify>=0.6.0,<0.7
+Jinja2>=2.6  # BSD License (3 clause)
 oslo.concurrency>=1.4.1         # Apache-2.0
 oslo.config>=1.6.0  # Apache-2.0
-oslo.db>=1.4.1  # Apache-2.0
-oslo.rootwrap>=1.5.0
-oslo.i18n>=1.3.0  # Apache-2.0
+oslo.middleware>=0.3.0                  # Apache-2.0
 oslo.serialization>=1.2.0               # Apache-2.0
 oslo.utils>=1.2.0                       # Apache-2.0
-pecan>=0.8.0
+PrettyTable>=0.7,<0.8
+psutil>=1.1.1,<2.0.0
+pycrypto>=2.6
 requests>=2.2.0,!=2.4.0
-six>=1.9.0
-jsonpatch>=1.1
-WSME>=0.6
-Jinja2>=2.6  # BSD License (3 clause)
-keystonemiddleware>=1.0.0
-oslo.messaging>=1.6.0  # Apache-2.0
-retrying>=1.2.3,!=1.3.0 # Apache-2.0
-posix_ipc
+six>=1.7.0
+stevedore>=1.1.0  # Apache-2.0
+oslo.i18n>=1.3.0  # Apache-2.0

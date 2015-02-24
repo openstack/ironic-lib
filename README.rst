@@ -1,31 +1,17 @@
-Ironic
-======
+----------
+ironic_lib
+----------
 
-Ironic is an integrated OpenStack project which aims to provision bare
-metal machines instead of virtual machines, forked from the Nova Baremetal
-driver. It is best thought of as a bare metal hypervisor **API** and a set
-of plugins which interact with the bare metal hypervisors. By default, it
-will use PXE and IPMI in concert to provision and turn on/off machines,
-but Ironic also supports vendor-specific plugins which may implement
-additional functionality.
+Running Tests
+-------------
 
------------------
-Project Resources
------------------
+To run tests in virtualenvs (preferred)::
 
-Project status, bugs, and blueprints are tracked on Launchpad:
+  sudo pip install tox
+  tox
 
-  http://launchpad.net/ironic
+To run tests in the current environment::
 
-Developer documentation can be found here:
+  sudo pip install -r requirements.txt
+  nosetests
 
-  http://docs.openstack.org/developer/ironic
-
-Additional resources are linked from the project wiki page:
-
-  https://wiki.openstack.org/wiki/Ironic
-
-Anyone wishing to contribute to an OpenStack project should
-find a good reference here:
-
-  http://docs.openstack.org/infra/manual/developers.html
