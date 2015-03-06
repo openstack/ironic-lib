@@ -21,6 +21,7 @@
 import errno
 import logging
 import os
+import tempfile
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -34,23 +35,28 @@ utils_opts = [
     cfg.StrOpt('rootwrap_config',
                default="",
                help='Path to the rootwrap configuration file to use for '
-                    'running commands as root.'),
+                    'running commands as root.',
+               deprecated_group='DEFAULT'),
     cfg.StrOpt('rootwrap_helper_cmd',
                default="",
                help='Path to the rootwrap configuration file to use for '
                     'running commands as root.'),
     cfg.StrOpt('tempdir',
-               help='Explicitly specify the temporary working directory.'),
+               default=tempfile.gettempdir(),
+               help='Explicitly specify the temporary working directory.',
+               deprecated_group='DEFAULT'),
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(utils_opts)
+CONF.register_opts(utils_opts, group='ironic_lib')
 
 LOG = logging.getLogger(__name__)
 
 
 def _get_root_helper():
-    return '%s %s' % (CONF.rootwrap_helper_cmd, CONF.rootwrap_config)
+    root_helper = '%s %s' % (CONF.ironic_lib.rootwrap_helper_cmd,
+                             CONF.ironic_lib.rootwrap_config)
+    return root_helper
 
 
 def execute(*cmd, **kwargs):

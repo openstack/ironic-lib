@@ -36,11 +36,12 @@ LOG = logging.getLogger(__name__)
 exc_log_opts = [
     cfg.BoolOpt('fatal_exception_format_errors',
                 default=False,
-                help='Make exception message format errors fatal.'),
+                help='Make exception message format errors fatal.',
+                deprecated_group='DEFAULT'),
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(exc_log_opts)
+CONF.register_opts(exc_log_opts, group='ironic_lib')
 
 
 class IronicException(Exception):
@@ -76,7 +77,7 @@ class IronicException(Exception):
                 for name, value in kwargs.iteritems():
                     LOG.error("%s: %s" % (name, value))
 
-                if CONF.fatal_exception_format_errors:
+                if CONF.ironic_lib.fatal_exception_format_errors:
                     raise e
                 else:
                     # at least get the core message out if something happened

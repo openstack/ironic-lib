@@ -13,17 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
 import re
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_service import loopingcall
 
+from ironic_lib import exception
 from ironic_lib.openstack.common._i18n import _
 from ironic_lib.openstack.common._i18n import _LW
-
-from ironic_lib import exception
 from ironic_lib import utils
 
 
@@ -39,10 +38,7 @@ opts = [
                help='The maximum number of times to check that the device is '
                     'not accessed by another process. If the device is still '
                     'busy after that, the disk partitioning will be treated as'
-                    ' having failed.'),
-    cfg.StrOpt('dd_block_size',
-               default='1M',
-               help='Block size to use when writing to the nodes disk.'),
+                    ' having failed.')
 ]
 
 CONF = cfg.CONF

@@ -23,6 +23,7 @@ import tempfile
 
 
 from oslo_concurrency import processutils
+from oslo_config import cfg
 from oslotest import base as test_base
 import requests
 
@@ -30,6 +31,8 @@ from ironic_lib import disk_partitioner
 from ironic_lib import disk_utils
 from ironic_lib import exception
 from ironic_lib import utils
+
+CONF = cfg.CONF
 
 
 @mock.patch.object(utils, 'execute')
@@ -43,9 +46,9 @@ BYT;
 2:501MiB:476940MiB:476439MiB:::;
 """
         expected = [
-            {'start': 1, 'end': 501, 'size': 500,
+            {'number': 1, 'start': 1, 'end': 501, 'size': 500,
              'filesystem': 'ext4', 'flags': 'boot'},
-            {'start': 501, 'end': 476940, 'size': 476439,
+            {'number': 2, 'start': 501, 'end': 476940, 'size': 476439,
              'filesystem': '', 'flags': ''},
         ]
         execute_mock.return_value = (output, '')
@@ -53,7 +56,7 @@ BYT;
         self.assertEqual(expected, result)
         execute_mock.assert_called_once_with(
             'parted', '-s', '-m', '/dev/fake', 'unit', 'MiB', 'print',
-            use_standard_locale=True)
+            use_standard_locale=True, run_as_root=True)
 
     @mock.patch.object(disk_utils.LOG, 'warn')
     def test_incorrect(self, log_mock, execute_mock):
@@ -82,54 +85,48 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
         self.swap_part = '/dev/fake-part1'
         self.root_part = '/dev/fake-part2'
 
-        self.mock_ibd = mock.patch.object(disk_utils,
-                                          'is_block_device').start()
-        self.mock_mp = mock.patch.object(disk_utils,
-                                         'make_partitions').start()
-        self.addCleanup(self.mock_ibd.stop)
-        self.addCleanup(self.mock_mp.stop)
-        self.mock_remlbl = mock.patch.object(disk_utils,
-                                             'destroy_disk_metadata').start()
-        self.addCleanup(self.mock_remlbl.stop)
+        self.mock_ibd_obj = mock.patch.object(
+            disk_utils, 'is_block_device', autospec=True)
+        self.mock_ibd = self.mock_ibd_obj.start()
+        self.addCleanup(self.mock_ibd_obj.stop)
+        self.mock_mp_obj = mock.patch.object(
+            disk_utils, 'make_partitions', autospec=True)
+        self.mock_mp = self.mock_mp_obj.start()
+        self.addCleanup(self.mock_mp_obj.stop)
+        self.mock_remlbl_obj = mock.patch.object(
+            disk_utils, 'destroy_disk_metadata', autospec=True)
+        self.mock_remlbl = self.mock_remlbl_obj.start()
+        self.addCleanup(self.mock_remlbl_obj.stop)
         self.mock_mp.return_value = {'swap': self.swap_part,
                                      'root': self.root_part}
 
-    def test_no_parent_device(self):
+    def test_no_root_partition(self):
         self.mock_ibd.return_value = False
         self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils.work_on_disk, self.dev,
-                          self.root_mb, self.swap_mb, self.ephemeral_mb,
-                          self.ephemeral_format, self.image_path, False)
-        self.mock_ibd.assert_called_once_with(self.dev)
-        self.assertFalse(self.mock_mp.called,
-                         "make_partitions mock was unexpectedly called.")
-
-    def test_no_root_partition(self):
-        self.mock_ibd.side_effect = [True, False]
-        calls = [mock.call(self.dev),
-                 mock.call(self.root_part)]
-        self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils.work_on_disk, self.dev,
-                          self.root_mb, self.swap_mb, self.ephemeral_mb,
-                          self.ephemeral_format, self.image_path, False)
-        self.assertEqual(self.mock_ibd.call_args_list, calls)
+                          disk_utils.work_on_disk, self.dev, self.root_mb,
+                          self.swap_mb, self.ephemeral_mb,
+                          self.ephemeral_format, self.image_path, 'fake-uuid')
+        self.mock_ibd.assert_called_once_with(self.root_part)
         self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
                                              self.swap_mb, self.ephemeral_mb,
-                                             self.configdrive_mb, commit=True)
+                                             self.configdrive_mb, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios")
 
     def test_no_swap_partition(self):
-        self.mock_ibd.side_effect = [True, True, False]
-        calls = [mock.call(self.dev),
-                 mock.call(self.root_part),
+        self.mock_ibd.side_effect = iter([True, False])
+        calls = [mock.call(self.root_part),
                  mock.call(self.swap_part)]
         self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils.work_on_disk, self.dev,
-                          self.root_mb, self.swap_mb, self.ephemeral_mb,
-                          self.ephemeral_format, self.image_path, False)
+                          disk_utils.work_on_disk, self.dev, self.root_mb,
+                          self.swap_mb, self.ephemeral_mb,
+                          self.ephemeral_format, self.image_path, 'fake-uuid')
         self.assertEqual(self.mock_ibd.call_args_list, calls)
         self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
                                              self.swap_mb, self.ephemeral_mb,
-                                             self.configdrive_mb, commit=True)
+                                             self.configdrive_mb, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios")
 
     def test_no_ephemeral_partition(self):
         ephemeral_part = '/dev/fake-part1'
@@ -141,19 +138,20 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
         self.mock_mp.return_value = {'ephemeral': ephemeral_part,
                                      'swap': swap_part,
                                      'root': root_part}
-        self.mock_ibd.side_effect = [True, True, True, False]
-        calls = [mock.call(self.dev),
-                 mock.call(root_part),
+        self.mock_ibd.side_effect = iter([True, True, False])
+        calls = [mock.call(root_part),
                  mock.call(swap_part),
                  mock.call(ephemeral_part)]
         self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils.work_on_disk, self.dev,
-                          self.root_mb, self.swap_mb, ephemeral_mb,
-                          ephemeral_format, self.image_path, False)
+                          disk_utils.work_on_disk, self.dev, self.root_mb,
+                          self.swap_mb, ephemeral_mb, ephemeral_format,
+                          self.image_path, 'fake-uuid')
         self.assertEqual(self.mock_ibd.call_args_list, calls)
         self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
                                              self.swap_mb, ephemeral_mb,
-                                             self.configdrive_mb, commit=True)
+                                             self.configdrive_mb, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios")
 
     @mock.patch.object(utils, 'unlink_without_raise')
     @mock.patch.object(disk_utils, '_get_configdrive')
@@ -168,21 +166,23 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
         self.mock_mp.return_value = {'swap': swap_part,
                                      'configdrive': configdrive_part,
                                      'root': root_part}
-        self.mock_ibd.side_effect = [True, True, True, False]
-        calls = [mock.call(self.dev),
-                 mock.call(root_part),
+        self.mock_ibd.side_effect = iter([True, True, False])
+        calls = [mock.call(root_part),
                  mock.call(swap_part),
                  mock.call(configdrive_part)]
         self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils.work_on_disk, self.dev,
-                          self.root_mb, self.swap_mb, self.ephemeral_mb,
+                          disk_utils.work_on_disk, self.dev, self.root_mb,
+                          self.swap_mb, self.ephemeral_mb,
                           self.ephemeral_format, self.image_path, 'fake-uuid',
                           preserve_ephemeral=False,
-                          configdrive=configdrive_url)
+                          configdrive=configdrive_url,
+                          boot_option="netboot")
         self.assertEqual(self.mock_ibd.call_args_list, calls)
         self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
                                              self.swap_mb, self.ephemeral_mb,
-                                             configdrive_mb, commit=True)
+                                             configdrive_mb, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios")
         mock_unlink.assert_called_once_with('fake-path')
 
 
@@ -196,17 +196,27 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         self.swap_mb = 512
         self.ephemeral_mb = 0
         self.configdrive_mb = 0
-        self.parted_static_cmd = ['parted', '-a', 'optimal', '-s', self.dev,
-                                  '--', 'unit', 'MiB', 'mklabel', 'msdos']
 
-    def test_make_partitions(self, mock_exc):
+    def _get_parted_cmd(self, dev):
+        return ['parted', '-a', 'optimal', '-s', dev,
+                '--', 'unit', 'MiB', 'mklabel', 'msdos']
+
+    def _get_parted_cmd_uefi(self, dev):
+        return ['parted', '-a', 'optimal', '-s',
+                dev, '--', 'unit', 'MiB', 'mklabel', 'gpt']
+
+    def _test_make_partitions(self, mock_exc, boot_option):
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
-                                   self.ephemeral_mb, self.configdrive_mb)
+                              self.ephemeral_mb, self.configdrive_mb,
+                              boot_option=boot_option)
 
         expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1', '513',
                            'mkpart', 'primary', '', '513', '1537']
-        parted_cmd = self.parted_static_cmd + expected_mkpart
+        if boot_option == "local":
+            expected_mkpart.extend(['set', '2', 'boot', 'on'])
+        self.dev = 'fake-dev'
+        parted_cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         parted_call = mock.call(*parted_cmd, run_as_root=True,
                                 check_exit_code=[0])
         fuser_cmd = ['fuser', 'fake-dev']
@@ -214,18 +224,83 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                                check_exit_code=[0, 1])
         mock_exc.assert_has_calls([parted_call, fuser_call])
 
+    def test_make_partitions(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="netboot")
+
+    def test_make_partitions_local_boot(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="local")
+
     def test_make_partitions_with_ephemeral(self, mock_exc):
         self.ephemeral_mb = 2048
         expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
                            'mkpart', 'primary', 'linux-swap', '2049', '2561',
                            'mkpart', 'primary', '', '2561', '3585']
-        cmd = self.parted_static_cmd + expected_mkpart
+        self.dev = 'fake-dev'
+        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
-                                   self.ephemeral_mb, self.configdrive_mb)
+                              self.ephemeral_mb, self.configdrive_mb)
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
+
+    def test_make_partitions_with_local_device(self, mock_exc):
+        self.ephemeral_mb = 2048
+        expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
+                           'mkpart', 'primary', 'linux-swap', '2049', '2561',
+                           'mkpart', 'primary', '', '2561', '3585']
+        self.dev = 'fake-dev'
+        expected_result = {'ephemeral': 'fake-dev1',
+                           'swap': 'fake-dev2',
+                           'root': 'fake-dev3'}
+        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
+        mock_exc.return_value = (None, None)
+        result = disk_utils.make_partitions(self.dev, self.root_mb,
+                    self.swap_mb, self.ephemeral_mb, self.configdrive_mb)
+
+        parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
+        mock_exc.assert_has_calls([parted_call])
+        self.assertEqual(expected_result, result)
+
+    def test_make_partitions_with_iscsi_device(self, mock_exc):
+        self.ephemeral_mb = 2048
+        expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
+                           'mkpart', 'primary', 'linux-swap', '2049', '2561',
+                           'mkpart', 'primary', '', '2561', '3585']
+        self.dev = 'ip-10.10.1.10:abc-iscsi-xyz-lun-123'
+        expected_result = {'ephemeral': self.dev + '-part1',
+                           'swap': self.dev + '-part2',
+                           'root': self.dev + '-part3'}
+        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
+        mock_exc.return_value = (None, None)
+        result = disk_utils.make_partitions(self.dev, self.root_mb,
+                     self.swap_mb, self.ephemeral_mb, self.configdrive_mb)
+
+        parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
+        mock_exc.assert_has_calls([parted_call])
+        self.assertEqual(expected_result, result)
+
+    def test_make_partitions_with_iscsi_device_uefi_local(self, mock_exc):
+        self.ephemeral_mb = 2048
+        expected_mkpart = ['mkpart', 'primary', 'fat32', '1', '201',
+                           'set', '1', 'boot', 'on',
+                           'mkpart', 'primary', '', '201', '2249',
+                           'mkpart', 'primary', 'linux-swap', '2249', '2761',
+                           'mkpart', 'primary', '', '2761', '3785']
+        self.dev = 'ip-10.10.1.10:abc-iscsi-xyz-lun-123'
+        expected_result = {'efi system partition': self.dev + '-part1',
+                           'ephemeral': self.dev + '-part2',
+                           'swap': self.dev + '-part3',
+                           'root': self.dev + '-part4'}
+        cmd = self._get_parted_cmd_uefi(self.dev) + expected_mkpart
+        mock_exc.return_value = (None, None)
+        result = disk_utils.make_partitions(self.dev, self.root_mb,
+                     self.swap_mb, self.ephemeral_mb, self.configdrive_mb,
+                     boot_option='local', boot_mode='uefi')
+
+        parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
+        mock_exc.assert_has_calls([parted_call])
+        self.assertEqual(expected_result, result)
 
 
 @mock.patch.object(disk_utils, 'get_dev_block_size')
@@ -490,3 +565,11 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
             return_value=mb + 1)
         self.assertEqual(2, disk_utils.get_image_mb('x', False))
         self.assertEqual(2, disk_utils.get_image_mb('x', True))
+
+    def test_is_iscsi_device_True(self):
+        device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
+        self.assertTrue(disk_utils.is_iscsi_device(device))
+
+    def test_is_iscsi_device_False(self):
+        device = '/dev/disk/by-path/fake-dev'
+        self.assertFalse(disk_utils.is_iscsi_device(device))

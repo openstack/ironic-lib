@@ -42,22 +42,31 @@ from ironic_lib import utils
 
 
 opts = [
+    cfg.IntOpt('efi_system_partition_size',
+               default=200,
+               help='Size of EFI system partition in MiB when configuring '
+                    'UEFI systems for local boot.',
+               deprecated_group='deploy'),
     cfg.StrOpt('dd_block_size',
                default='1M',
-               help='Block size to use when writing to the nodes disk.'),
+               help='Block size to use when writing to the nodes disk.',
+               deprecated_group='deploy'),
     cfg.IntOpt('iscsi_verify_attempts',
                default=3,
                help='Maximum attempts to verify an iSCSI connection is '
-                    'active, sleeping 1 second between attempts.'),
+                    'active, sleeping 1 second between attempts.',
+               deprecated_group='deploy'),
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(opts, group='deploy')
+CONF.register_opts(opts, group='disk_utils')
 
 LOG = logging.getLogger(__name__)
 
-_PARTED_PRINT_RE = re.compile(r"^\d+:([\d\.]+)MiB:"
+_PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
                               "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
+
+_ISCSI_RE = re.compile(r"^ip-[\d+.]*:\w+-iscsi-[\w+.]*-lun-\d+")
 
 
 def list_partitions(device):
@@ -65,14 +74,16 @@ def list_partitions(device):
 
     :param device: The device path.
     :returns: list of dictionaries (one per partition) with keys:
-              start, end, size (in MiB), filesystem, flags
+              number, start, end, size (in MiB), filesystem, flags
     """
     output = utils.execute(
         'parted', '-s', '-m', device, 'unit', 'MiB', 'print',
-        use_standard_locale=True)[0]
+        use_standard_locale=True, run_as_root=True)[0]
+    if isinstance(output, bytes):
+        output = output.decode("utf-8")
     lines = [line for line in output.split('\n') if line.strip()][2:]
     # Example of line: 1:1.00MiB:501MiB:500MiB:ext4::boot
-    fields = ('start', 'end', 'size', 'filesystem', 'flags')
+    fields = ('number', 'start', 'end', 'size', 'filesystem', 'flags')
     result = []
     for line in lines:
         match = _PARTED_PRINT_RE.match(line)
@@ -83,14 +94,43 @@ def list_partitions(device):
                      dict(device=device, line=line))
             continue
         # Cast int fields to ints (some are floats and we round them down)
-        groups = [int(float(x)) if i < 3 else x
+        groups = [int(float(x)) if i < 4 else x
                   for i, x in enumerate(match.groups())]
         result.append(dict(zip(fields, groups)))
     return result
 
 
+def is_iscsi_device(dev):
+    """check whether the device path belongs to an iscsi device. """
+    basename = os.path.basename(dev)
+    return bool(_ISCSI_RE.match(basename))
+
+
+def get_disk_identifier(dev):
+    """Get the disk identifier from the disk being exposed by the ramdisk.
+
+    This disk identifier is appended to the pxe config which will then be
+    used by chain.c32 to detect the correct disk to chainload. This is helpful
+    in deployments to nodes with multiple disks.
+
+    http://www.syslinux.org/wiki/index.php/Comboot/chain.c32#mbr:
+
+    :param dev: Path for the already populated disk device.
+    :returns The Disk Identifier.
+    """
+    disk_identifier = utils.execute('hexdump', '-s', '440', '-n', '4',
+                                    '-e', '''\"0x%08x\"''',
+                                    dev,
+                                    run_as_root=True,
+                                    check_exit_code=[0],
+                                    attempts=5,
+                                    delay_on_retry=True)
+    return disk_identifier[0]
+
+
 def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
-                    configdrive_mb, commit=True):
+                    configdrive_mb, commit=True, boot_option="netboot",
+                    boot_mode="bios"):
     """Partition the disk device.
 
     Create partitions for root, swap, ephemeral and configdrive on a
@@ -105,15 +145,33 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
         mebibytes (MiB). If 0, no partition will be created.
     :param commit: True/False. Default for this setting is True. If False
         partitions will not be written to disk.
+    :param boot_option: Can be "local" or "netboot". "netboot" by default.
+    :param boot_mode: Can be "bios" or "uefi". "bios" by default.
     :returns: A dictionary containing the partition type as Key and partition
         path as Value for the partitions created by this method.
 
     """
     LOG.debug("Starting to partition the disk device: %(dev)s",
               {'dev': dev})
-    part_template = dev + '-part%d'
+
+    if is_iscsi_device(dev):
+        part_template = dev + '-part%d'
+    else:
+        part_template = dev + '%d'
+
     part_dict = {}
-    dp = disk_partitioner.DiskPartitioner(dev)
+
+    # For uefi localboot, switch partition table to gpt and create the efi
+    # system partition as the first partition.
+    if boot_mode == "uefi" and boot_option == "local":
+        dp = disk_partitioner.DiskPartitioner(dev, disk_label="gpt")
+        part_num = dp.add_partition(CONF.disk_utils.efi_system_partition_size,
+                                    fs_type='fat32',
+                                    bootable=True)
+        part_dict['efi system partition'] = part_template % part_num
+    else:
+        dp = disk_partitioner.DiskPartitioner(dev)
+
     if ephemeral_mb:
         LOG.debug("Add ephemeral partition (%(size)d MB) to device: %(dev)s",
                   {'dev': dev, 'size': ephemeral_mb})
@@ -135,7 +193,8 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     # partition until the end of the disk.
     LOG.debug("Add root partition (%(size)d MB) to device: %(dev)s",
               {'dev': dev, 'size': root_mb})
-    part_num = dp.add_partition(root_mb)
+    part_num = dp.add_partition(root_mb, bootable=(boot_option == "local" and
+                                                   boot_mode == "bios"))
     part_dict['root'] = part_template % part_num
 
     if commit:
@@ -144,52 +203,9 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     return part_dict
 
 
-def dd(src, dst):
-    """Execute dd from src to dst."""
-    utils.dd(src, dst, 'bs=%s' % CONF.deploy.dd_block_size, 'oflag=direct')
-
-
-def qemu_img_info(path):
-    """Return an object containing the parsed output from qemu-img info."""
-    if not os.path.exists(path):
-        return imageutils.QemuImgInfo()
-
-    out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
-                             'qemu-img', 'info', path)
-    return imageutils.QemuImgInfo(out)
-
-
-def get_image_mb(image_path, virtual_size=True):
-    """Get size of an image in Megabyte."""
-    mb = 1024 * 1024
-    if not virtual_size:
-        image_byte = os.path.getsize(image_path)
-    else:
-        data = qemu_img_info(image_path)
-        image_byte = data.virtual_size
-
-    # round up size to MB
-    image_mb = int((image_byte + mb - 1) / mb)
-    return image_mb
-
-
-def convert_image(source, dest, out_format, run_as_root=False):
-    """Convert image to other format."""
-    cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
-    utils.execute(*cmd, run_as_root=run_as_root)
-
-
-def populate_image(src, dst):
-    data = qemu_img_info(src)
-    if data.file_format == 'raw':
-        dd(src, dst)
-    else:
-        convert_image(src, dst, 'raw', True)
-
-
 def is_block_device(dev):
     """Check whether a device is block or not."""
-    attempts = CONF.deploy.iscsi_verify_attempts
+    attempts = CONF.disk_utils.iscsi_verify_attempts
     for attempt in range(attempts):
         try:
             s = os.stat(dev)
@@ -206,13 +222,40 @@ def is_block_device(dev):
     raise exception.InstanceDeployFailure(msg)
 
 
-def mkswap(dev, label='swap1'):
-    """Execute mkswap on a device."""
-    utils.mkfs('swap', dev, label)
+def dd(src, dst):
+    """Execute dd from src to dst."""
+    utils.dd(src, dst, 'bs=%s' % CONF.disk_utils.dd_block_size, 'oflag=direct')
 
 
-def mkfs_ephemeral(dev, ephemeral_format, label="ephemeral0"):
-    utils.mkfs(ephemeral_format, dev, label)
+def qemu_img_info(path):
+    """Return an object containing the parsed output from qemu-img info."""
+    if not os.path.exists(path):
+        return imageutils.QemuImgInfo()
+
+    out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
+                             'qemu-img', 'info', path)
+    return imageutils.QemuImgInfo(out)
+
+
+def convert_image(source, dest, out_format, run_as_root=False):
+    """Convert image to other format."""
+    cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
+    utils.execute(*cmd, run_as_root=run_as_root)
+
+
+def populate_image(src, dst):
+    data = qemu_img_info(src)
+    if data.file_format == 'raw':
+        dd(src, dst)
+    else:
+        convert_image(src, dst, 'raw', True)
+
+
+# TODO(rameshg87): Remove this one-line method and use utils.mkfs
+# directly.
+def mkfs(fs, dev, label=None):
+    """Execute mkfs on a device."""
+    utils.mkfs(fs, dev, label)
 
 
 def block_uuid(dev):
@@ -221,6 +264,20 @@ def block_uuid(dev):
                               run_as_root=True,
                               check_exit_code=[0])
     return out.strip()
+
+
+def get_image_mb(image_path, virtual_size=True):
+    """Get size of an image in Megabyte."""
+    mb = 1024 * 1024
+    if not virtual_size:
+        image_byte = os.path.getsize(image_path)
+    else:
+        data = qemu_img_info(image_path)
+        image_byte = data.virtual_size
+
+    # round up size to MB
+    image_mb = int((image_byte + mb - 1) / mb)
+    return image_mb
 
 
 def get_dev_block_size(dev):
@@ -307,7 +364,7 @@ def _get_configdrive(configdrive, node_uuid):
         data = configdrive
 
     try:
-        data = six.StringIO(base64.b64decode(data))
+        data = six.BytesIO(base64.b64decode(data))
     except TypeError:
         error_msg = (_('Config drive for node %s is not base64 encoded '
                        'or the content is malformed.') % node_uuid)
@@ -316,7 +373,8 @@ def _get_configdrive(configdrive, node_uuid):
         raise exception.InstanceDeployFailure(error_msg)
 
     configdrive_file = tempfile.NamedTemporaryFile(delete=False,
-                                                   prefix='configdrive')
+                                                   prefix='configdrive',
+                                                   dir=CONF.ironic_lib.tempdir)
     configdrive_mb = 0
     with gzip.GzipFile('configdrive', 'rb', fileobj=data) as gunzipped:
         try:
@@ -341,7 +399,8 @@ def _get_configdrive(configdrive, node_uuid):
 
 def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                  image_path, node_uuid, preserve_ephemeral=False,
-                 configdrive=None):
+                 configdrive=None, boot_option="netboot",
+                 boot_mode="bios"):
     """Create partitions and copy an image to the root partition.
 
     :param dev: Path for the device to work on.
@@ -358,12 +417,15 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         partition table has not changed).
     :param configdrive: Optional. Base64 encoded Gzipped configdrive content
                         or configdrive HTTP URL.
-    :returns: the UUID of the root partition.
+    :param boot_option: Can be "local" or "netboot". "netboot" by default.
+    :param boot_mode: Can be "bios" or "uefi". "bios" by default.
+    :returns: a dictionary containing the following keys:
+        'root uuid': UUID of root partition
+        'efi system partition uuid': UUID of the uefi system partition
+                                     (if boot mode is uefi).
+        NOTE: If key exists but value is None, it means partition doesn't
+              exist.
     """
-    if not is_block_device(dev):
-        raise exception.InstanceDeployFailure(
-            _("Parent device '%s' not found") % dev)
-
     # the only way for preserve_ephemeral to be set to true is if we are
     # rebuilding an instance with --preserve_ephemeral.
     commit = not preserve_ephemeral
@@ -381,7 +443,9 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                                                                 node_uuid)
 
         part_dict = make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
-                                    configdrive_mb, commit=commit)
+                                    configdrive_mb, commit=commit,
+                                    boot_option=boot_option,
+                                    boot_mode=boot_mode)
 
         ephemeral_part = part_dict.get('ephemeral')
         swap_part = part_dict.get('swap')
@@ -392,15 +456,22 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
             raise exception.InstanceDeployFailure(
                 _("Root device '%s' not found") % root_part)
 
-        for part in ('swap', 'ephemeral', 'configdrive'):
+        for part in ('swap', 'ephemeral', 'configdrive',
+                     'efi system partition'):
             part_device = part_dict.get(part)
             LOG.debug("Checking for %(part)s device (%(dev)s) on node "
                       "%(node)s.", {'part': part, 'dev': part_device,
-                                    'node': node_uuid})
+                      'node': node_uuid})
             if part_device and not is_block_device(part_device):
                 raise exception.InstanceDeployFailure(
                     _("'%(partition)s' device '%(part_device)s' not found") %
                     {'partition': part, 'part_device': part_device})
+
+        # If it's a uefi localboot, then we have created the efi system
+        # partition.  Create a fat filesystem on it.
+        if boot_mode == "uefi" and boot_option == "local":
+            efi_system_part = part_dict.get('efi system partition')
+            mkfs(dev=efi_system_part, fs='vfat', label='efi-part')
 
         if configdrive_part:
             # Copy the configdrive content to the configdrive partition
@@ -415,15 +486,23 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
     populate_image(image_path, root_part)
 
     if swap_part:
-        mkswap(swap_part)
+        mkfs(dev=swap_part, fs='swap', label='swap1')
 
     if ephemeral_part and not preserve_ephemeral:
-        mkfs_ephemeral(ephemeral_part, ephemeral_format)
+        mkfs(dev=ephemeral_part, fs=ephemeral_format, label="ephemeral0")
+
+    uuids_to_return = {
+        'root uuid': root_part,
+        'efi system partition uuid': part_dict.get('efi system partition')
+    }
 
     try:
-        root_uuid = block_uuid(root_part)
+        for part, part_dev in six.iteritems(uuids_to_return):
+            if part_dev:
+                uuids_to_return[part] = block_uuid(part_dev)
+
     except processutils.ProcessExecutionError:
         with excutils.save_and_reraise_exception():
-            LOG.error(_LE("Failed to detect root device UUID."))
+            LOG.error(_LE("Failed to detect %s"), part)
 
-    return root_uuid
+    return uuids_to_return
