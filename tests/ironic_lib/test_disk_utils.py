@@ -490,4 +490,3 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
             return_value=mb + 1)
         self.assertEqual(2, disk_utils.get_image_mb('x', False))
         self.assertEqual(2, disk_utils.get_image_mb('x', True))
-
