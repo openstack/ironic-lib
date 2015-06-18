@@ -19,8 +19,8 @@ import os.path
 import tempfile
 
 import mock
-from oslo.config import cfg
 from oslo_concurrency import processutils
+from oslo_config import cfg
 from oslotest import base as test_base
 
 from ironic_lib import exception
