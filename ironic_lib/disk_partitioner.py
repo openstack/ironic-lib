@@ -18,10 +18,10 @@ import re
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_service import loopingcall
 
 from ironic_lib.openstack.common._i18n import _
 from ironic_lib.openstack.common._i18n import _LW
-from ironic_lib.openstack.common import loopingcall
 
 from ironic_lib import exception
 from ironic_lib import utils
