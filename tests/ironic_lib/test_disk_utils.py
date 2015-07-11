@@ -225,7 +225,7 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                                    self.ephemeral_mb, self.configdrive_mb)
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
-        mock_exc.assert_has_calls(parted_call)
+        mock_exc.assert_has_calls([parted_call])
 
 
 @mock.patch.object(disk_utils, 'get_dev_block_size')
