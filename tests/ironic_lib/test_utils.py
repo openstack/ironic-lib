@@ -77,7 +77,7 @@ exit 1
                 self.assertRaises(processutils.ProcessExecutionError,
                                   utils.execute,
                                   tmpfilename, tmpfilename2, attempts=10,
-                                  process_input='foo',
+                                  process_input=b'foo',
                                   delay_on_retry=False)
             except OSError as e:
                 if e.errno == errno.EACCES:
@@ -128,7 +128,7 @@ grep foo
             try:
                 utils.execute(tmpfilename,
                               tmpfilename2,
-                              process_input='foo',
+                              process_input=b'foo',
                               attempts=2)
             except OSError as e:
                 if e.errno == errno.EACCES:
