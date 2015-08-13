@@ -208,8 +208,8 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
     def _test_make_partitions(self, mock_exc, boot_option):
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
-                              self.ephemeral_mb, self.configdrive_mb,
-                              boot_option=boot_option)
+                                   self.ephemeral_mb, self.configdrive_mb,
+                                   boot_option=boot_option)
 
         expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1', '513',
                            'mkpart', 'primary', '', '513', '1537']
@@ -239,7 +239,7 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
-                              self.ephemeral_mb, self.configdrive_mb)
+                                   self.ephemeral_mb, self.configdrive_mb)
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
@@ -255,8 +255,9 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                            'root': 'fake-dev3'}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
-        result = disk_utils.make_partitions(self.dev, self.root_mb,
-                    self.swap_mb, self.ephemeral_mb, self.configdrive_mb)
+        result = disk_utils.make_partitions(
+            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
+            self.configdrive_mb)
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
@@ -273,8 +274,9 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                            'root': self.dev + '-part3'}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
-        result = disk_utils.make_partitions(self.dev, self.root_mb,
-                     self.swap_mb, self.ephemeral_mb, self.configdrive_mb)
+        result = disk_utils.make_partitions(
+            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
+            self.configdrive_mb)
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
@@ -294,9 +296,9 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                            'root': self.dev + '-part4'}
         cmd = self._get_parted_cmd_uefi(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
-        result = disk_utils.make_partitions(self.dev, self.root_mb,
-                     self.swap_mb, self.ephemeral_mb, self.configdrive_mb,
-                     boot_option='local', boot_mode='uefi')
+        result = disk_utils.make_partitions(
+            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
+            self.configdrive_mb, boot_option='local', boot_mode='uefi')
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])

@@ -211,8 +211,9 @@ def is_block_device(dev):
             s = os.stat(dev)
         except OSError as e:
             LOG.debug("Unable to stat device %(dev)s. Attempt %(attempt)d "
-                      "out of %(total)d. Error: %(err)s", {"dev": dev,
-                      "attempt": attempt + 1, "total": attempts, "err": e})
+                      "out of %(total)d. Error: %(err)s",
+                      {"dev": dev, "attempt": attempt + 1,
+                       "total": attempts, "err": e})
             time.sleep(1)
         else:
             return stat.S_ISBLK(s.st_mode)
@@ -461,7 +462,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
             part_device = part_dict.get(part)
             LOG.debug("Checking for %(part)s device (%(dev)s) on node "
                       "%(node)s.", {'part': part, 'dev': part_device,
-                      'node': node_uuid})
+                                    'node': node_uuid})
             if part_device and not is_block_device(part_device):
                 raise exception.InstanceDeployFailure(
                     _("'%(partition)s' device '%(part_device)s' not found") %
