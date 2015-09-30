@@ -27,8 +27,8 @@ import six
 
 from oslo_config import cfg
 
-from ironic_lib.openstack.common._i18n import _
-from ironic_lib.openstack.common._i18n import _LE
+from ironic_lib.common.i18n import _
+from ironic_lib.common.i18n import _LE
 
 
 LOG = logging.getLogger(__name__)
