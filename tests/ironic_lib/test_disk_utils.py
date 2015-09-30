@@ -318,11 +318,13 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
         mock_gz.return_value = 64
         expected_calls = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
                                     'bs=512', 'count=36', run_as_root=True,
-                                    check_exit_code=[0]),
+                                    check_exit_code=[0],
+                                    use_standard_locale=True),
                           mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
                                     'bs=512', 'count=36', 'seek=28',
                                     run_as_root=True,
-                                    check_exit_code=[0])]
+                                    check_exit_code=[0],
+                                    use_standard_locale=True)]
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_calls)
         self.assertTrue(mock_gz.called)
@@ -332,7 +334,8 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
 
         expected_call = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
                                    'bs=512', 'count=36', run_as_root=True,
-                                   check_exit_code=[0])]
+                                   check_exit_code=[0],
+                                   use_standard_locale=True)]
         self.assertRaises(processutils.ProcessExecutionError,
                           disk_utils.destroy_disk_metadata,
                           self.dev,
@@ -344,7 +347,8 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
 
         expected_call = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
                                    'bs=512', 'count=36', run_as_root=True,
-                                   check_exit_code=[0])]
+                                   check_exit_code=[0],
+                                   use_standard_locale=True)]
         self.assertRaises(processutils.ProcessExecutionError,
                           disk_utils.destroy_disk_metadata,
                           self.dev,
