@@ -2,6 +2,11 @@
 ironic_lib
 ----------
 
+Overview
+--------
+
+A common library to be used by various projects in the Ironic ecosystem.
+
 Running Tests
 -------------
 
