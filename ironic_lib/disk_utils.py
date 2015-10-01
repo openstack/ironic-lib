@@ -31,11 +31,11 @@ from oslo_config import cfg
 from oslo_utils import excutils
 from oslo_utils import units
 
-from ironic_lib.openstack.common._i18n import _
-from ironic_lib.openstack.common._i18n import _LE
-from ironic_lib.openstack.common._i18n import _LW
 from ironic_lib.openstack.common import imageutils
 
+from ironic_lib.common.i18n import _
+from ironic_lib.common.i18n import _LE
+from ironic_lib.common.i18n import _LW
 from ironic_lib import disk_partitioner
 from ironic_lib import exception
 from ironic_lib import utils

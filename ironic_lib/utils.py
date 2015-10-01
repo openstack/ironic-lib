@@ -27,9 +27,9 @@ from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_utils import excutils
 
+from ironic_lib.common.i18n import _LE
+from ironic_lib.common.i18n import _LW
 from ironic_lib import exception
-from ironic_lib.openstack.common._i18n import _LE
-from ironic_lib.openstack.common._i18n import _LW
 
 utils_opts = [
     cfg.StrOpt('rootwrap_config',
