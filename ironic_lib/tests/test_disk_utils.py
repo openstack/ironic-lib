@@ -671,3 +671,572 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
             return_value=mb + 1)
         self.assertEqual(2, disk_utils.get_image_mb('x', False))
         self.assertEqual(2, disk_utils.get_image_mb('x', True))
+
+
+@mock.patch.object(utils, 'execute')
+class WholeDiskPartitionTestCases(test_base.BaseTestCase):
+
+    def setUp(self):
+        super(WholeDiskPartitionTestCases, self).setUp()
+        self.dev = "/dev/fake"
+        self.config_part_label = "config-2"
+        self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
+
+    def test_get_partition_present(self, mock_execute):
+        blkid_output = '/dev/fake12\n'
+        mock_execute.side_effect = [(None, ''), (blkid_output, '')]
+        result = disk_utils._get_labelled_partition(self.dev,
+                                                    self.config_part_label,
+                                                    self.node_uuid)
+        self.assertEqual(blkid_output.rstrip(), result)
+        execute_calls = [
+            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('blkid', '-o', 'device', self.dev, '-t',
+                      'LABEL=config-2', check_exit_code=[0, 2],
+                      use_standard_locale=True, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
+    def test_get_partition_absent(self, mock_execute):
+        mock_execute.side_effect = [(None, ''),
+                                    (None, '')]
+        result = disk_utils._get_labelled_partition(self.dev,
+                                                    self.config_part_label,
+                                                    self.node_uuid)
+        self.assertEqual(None, result)
+        execute_calls = [
+            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('blkid', '-o', 'device', self.dev, '-t',
+                      'LABEL=config-2', check_exit_code=[0, 2],
+                      use_standard_locale=True, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
+    def test_get_partition_DeployFail_exc(self, mock_execute):
+        blkid_output = '/dev/fake12\n/dev/fake13\n'
+        mock_execute.side_effect = [(None, ''), (blkid_output, '')]
+        self.assertRaises(exception.InstanceDeployFailure,
+                          disk_utils._get_labelled_partition, self.dev,
+                          self.config_part_label, self.node_uuid)
+        execute_calls = [
+            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('blkid', '-o', 'device', self.dev, '-t',
+                      'LABEL=config-2', check_exit_code=[0, 2],
+                      use_standard_locale=True, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
+    @mock.patch.object(disk_utils.LOG, 'error')
+    def test_get_partition_exc(self, mock_log, mock_execute):
+        mock_execute.side_effect = processutils.ProcessExecutionError
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to retrieve partition labels',
+                               disk_utils._get_labelled_partition, self.dev,
+                               self.config_part_label, self.node_uuid)
+        mock_execute.assert_called_once_with('partprobe', self.dev,
+                                             run_as_root=True)
+        self.assertEqual(1, mock_log.call_count)
+
+    def _test_is_disk_larger_than_max_size(self, mock_execute, blk_out):
+        mock_execute.return_value = blk_out
+        result = disk_utils._is_disk_larger_than_max_size(self.dev,
+                                                          self.node_uuid)
+        mock_execute.assert_called_once_with('blockdev', '--getsize64',
+                                             '/dev/fake', run_as_root=True,
+                                             use_standard_locale=True)
+        return result
+
+    def test_is_disk_larger_than_max_size_false(self, mock_execute):
+        blkid_out = "53687091200"
+        ret = self._test_is_disk_larger_than_max_size(mock_execute,
+                                                      blk_out=blkid_out)
+        self.assertFalse(ret)
+
+    def test_is_disk_larger_than_max_size_true(self, mock_execute):
+        blkid_out = "4398046511104"
+        ret = self._test_is_disk_larger_than_max_size(mock_execute,
+                                                      blk_out=blkid_out)
+        self.assertTrue(ret)
+
+    @mock.patch.object(disk_utils.LOG, 'error')
+    def test_is_disk_larger_than_max_size_exc(self, mock_log, mock_execute):
+        mock_execute.side_effect = processutils.ProcessExecutionError
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to get size of disk',
+                               disk_utils._is_disk_larger_than_max_size,
+                               self.dev, self.node_uuid)
+        mock_execute.assert_called_once_with('blockdev', '--getsize64',
+                                             '/dev/fake', run_as_root=True,
+                                             use_standard_locale=True)
+        self.assertEqual(1, mock_log.call_count)
+
+    def test__is_disk_gpt_partitioned_true(self, mock_execute):
+        blkid_output = 'gpt'
+        mock_execute.return_value = (blkid_output, '')
+        result = disk_utils._is_disk_gpt_partitioned('/dev/fake',
+                                                     self.node_uuid)
+        self.assertTrue(result)
+        mock_execute.assert_called_once_with('blkid', '-p', '-o', 'value',
+                                             '-s', 'PTTYPE', '/dev/fake',
+                                             use_standard_locale=True,
+                                             run_as_root=True)
+
+    def test_is_disk_gpt_partitioned_false(self, mock_execute):
+        blkid_output = 'dos'
+        mock_execute.return_value = (blkid_output, '')
+        result = disk_utils._is_disk_gpt_partitioned('/dev/fake',
+                                                     self.node_uuid)
+        self.assertFalse(result)
+        mock_execute.assert_called_once_with('blkid', '-p', '-o', 'value',
+                                             '-s', 'PTTYPE', '/dev/fake',
+                                             use_standard_locale=True,
+                                             run_as_root=True)
+
+    @mock.patch.object(disk_utils.LOG, 'error')
+    def test_is_disk_gpt_partitioned_exc(self, mock_log, mock_execute):
+        mock_execute.side_effect = processutils.ProcessExecutionError
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to retrieve partition table type',
+                               disk_utils._is_disk_gpt_partitioned,
+                               self.dev, self.node_uuid)
+        mock_execute.assert_called_once_with('blkid', '-p', '-o', 'value',
+                                             '-s', 'PTTYPE', '/dev/fake',
+                                             use_standard_locale=True,
+                                             run_as_root=True)
+        self.assertEqual(1, mock_log.call_count)
+
+    def test_fix_gpt_structs_fix_required(self, mock_execute):
+        partprobe_err = """
+Error: The backup GPT table is not at the end of the disk, as it should be.
+This might mean that another operating system believes the disk is smaller.
+Fix, by moving the backup to the end (and removing the old backup)?
+Warning: Not all of the space available to /dev/sdb appears to be used,
+you can fix the GPT to use all of the space (an extra 581456476 blocks)
+or continue with the current setting?
+"""
+        mock_execute.return_value = ('', partprobe_err)
+        execute_calls = [
+            mock.call('partprobe', '/dev/fake', use_standard_locale=True,
+                      run_as_root=True),
+            mock.call('sgdisk', '-e', '/dev/fake', run_as_root=True)
+        ]
+        disk_utils._fix_gpt_structs('/dev/fake', self.node_uuid)
+        mock_execute.assert_has_calls(execute_calls)
+
+    def test_fix_gpt_structs_fix_not_required(self, mock_execute):
+        mock_execute.return_value = ('', '')
+
+        disk_utils._fix_gpt_structs('/dev/fake', self.node_uuid)
+        mock_execute.assert_called_once_with('partprobe', '/dev/fake',
+                                             use_standard_locale=True,
+                                             run_as_root=True)
+
+    @mock.patch.object(disk_utils.LOG, 'error')
+    def test_fix_gpt_structs_exc(self, mock_log, mock_execute):
+        mock_execute.side_effect = processutils.ProcessExecutionError
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to fix GPT data structures on disk',
+                               disk_utils._fix_gpt_structs,
+                               self.dev, self.node_uuid)
+        mock_execute.assert_called_once_with('partprobe', '/dev/fake',
+                                             use_standard_locale=True,
+                                             run_as_root=True)
+        self.assertEqual(1, mock_log.call_count)
+
+
+class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
+
+    def setUp(self):
+        super(WholeDiskConfigDriveTestCases, self).setUp()
+        self.dev = "/dev/fake"
+        self.config_part_label = "config-2"
+        self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_exists(self, mock_get_configdrive,
+                                     mock_get_labelled_partition,
+                                     mock_list_partitions,
+                                     mock_is_disk_gpt, mock_fix_gpt,
+                                     mock_dd, mock_unlink, mock_execute):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_part = '/dev/fake-part1'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        mock_get_labelled_partition.return_value = configdrive_part
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
+                                                 config_url)
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        mock_get_labelled_partition.assert_called_with(self.dev,
+                                                       self.config_part_label,
+                                                       self.node_uuid)
+        self.assertFalse(mock_list_partitions.called)
+        self.assertFalse(mock_is_disk_gpt.called)
+        self.assertFalse(mock_execute.called)
+        mock_dd.assert_called_with(configdrive_file, configdrive_part)
+        mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_gpt(self, mock_get_configdrive,
+                                  mock_get_labelled_partition,
+                                  mock_list_partitions,
+                                  mock_is_disk_gpt, mock_fix_gpt,
+                                  mock_dd, mock_unlink, mock_execute):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        initial_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        updated_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 4, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+
+        mock_is_disk_gpt.return_value = True
+        mock_list_partitions.side_effect = [initial_partitions,
+                                            updated_partitions]
+        expected_part = '/dev/fake4'
+        disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
+                                                 config_url)
+        mock_execute.assert_called_with('sgdisk', '-n', '0:-64MB:0',
+                                        self.dev, run_as_root=True)
+        self.assertEqual(2, mock_list_partitions.call_count)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_fix_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_dd.assert_called_with(configdrive_file, expected_part)
+        mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(disk_utils.LOG, 'warning')
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def _test_create_partition_mbr(self, mock_get_configdrive,
+                                   mock_get_labelled_partition,
+                                   mock_list_partitions,
+                                   mock_is_disk_gpt, mock_fix_gpt,
+                                   mock_disk_exceeds, mock_dd,
+                                   mock_unlink, mock_log, mock_execute,
+                                   disk_size_exceeds_max=False,
+                                   is_iscsi_device=False):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+        mock_disk_exceeds.return_value = disk_size_exceeds_max
+
+        initial_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        updated_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 4, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        mock_list_partitions.side_effect = [initial_partitions,
+                                            initial_partitions,
+                                            updated_partitions]
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+        mock_is_disk_gpt.return_value = False
+
+        self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
+        if is_iscsi_device:
+            self.dev = ('/dev/iqn.2008-10.org.openstack:%s.fake' %
+                        self.node_uuid)
+            expected_part = '%s-part4' % self.dev
+        else:
+            expected_part = '/dev/fake4'
+
+        disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
+                                                 config_url)
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        if disk_size_exceeds_max:
+            self.assertEqual(1, mock_log.call_count)
+            mock_execute.assert_called_with('parted', '-a', 'optimal', '-s',
+                                            '--', self.dev, 'mkpart',
+                                            'primary', 'ext2', 2097087,
+                                            2097151, run_as_root=True)
+        else:
+            self.assertEqual(0, mock_log.call_count)
+            mock_execute.assert_called_with('parted', '-a', 'optimal', '-s',
+                                            '--', self.dev, 'mkpart',
+                                            'primary', 'ext2', '-64MiB',
+                                            '-0', run_as_root=True)
+        self.assertEqual(3, mock_list_partitions.call_count)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
+        mock_dd.assert_called_with(configdrive_file, expected_part)
+        mock_unlink.assert_called_with(configdrive_file)
+        self.assertFalse(mock_fix_gpt.called)
+
+    def test__create_partition_mbr_disk_under_2TB(self):
+        self._test_create_partition_mbr(disk_size_exceeds_max=False,
+                                        is_iscsi_device=True)
+
+    def test__create_partition_mbr_disk_exceeds_2TB(self):
+        self._test_create_partition_mbr(disk_size_exceeds_max=True,
+                                        is_iscsi_device=False)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_part_create_fail(self, mock_get_configdrive,
+                                               mock_get_labelled_partition,
+                                               mock_list_partitions,
+                                               mock_is_disk_gpt, mock_fix_gpt,
+                                               mock_disk_exceeds, mock_dd,
+                                               mock_unlink, mock_execute):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        initial_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        updated_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+        mock_is_disk_gpt.return_value = False
+        mock_disk_exceeds.return_value = False
+        mock_list_partitions.side_effect = [initial_partitions,
+                                            initial_partitions,
+                                            updated_partitions]
+
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Disk partitioning failed on device',
+                               disk_utils.create_config_drive_partition,
+                               self.node_uuid, self.dev, config_url)
+
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        mock_execute.assert_called_with('parted', '-a', 'optimal', '-s', '--',
+                                        self.dev, 'mkpart', 'primary',
+                                        'ext2', '-64MiB', '-0',
+                                        run_as_root=True)
+        self.assertEqual(3, mock_list_partitions.call_count)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
+        self.assertFalse(mock_fix_gpt.called)
+        self.assertFalse(mock_dd.called)
+        mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_part_create_exc(self, mock_get_configdrive,
+                                              mock_get_labelled_partition,
+                                              mock_list_partitions,
+                                              mock_is_disk_gpt, mock_fix_gpt,
+                                              mock_disk_exceeds, mock_dd,
+                                              mock_unlink, mock_execute):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        initial_partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                               'flags': 'boot', 'filesystem': 'ext4',
+                               'size': 49151},
+                              {'end': 51099, 'number': 3, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046},
+                              {'end': 51099, 'number': 5, 'start': 49153,
+                               'flags': '', 'filesystem': '', 'size': 2046}]
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+        mock_is_disk_gpt.return_value = False
+        mock_disk_exceeds.return_value = False
+        mock_list_partitions.side_effect = [initial_partitions,
+                                            initial_partitions]
+
+        mock_execute.side_effect = processutils.ProcessExecutionError
+
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to create config drive on disk',
+                               disk_utils.create_config_drive_partition,
+                               self.node_uuid, self.dev, config_url)
+
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        mock_execute.assert_called_with('parted', '-a', 'optimal', '-s', '--',
+                                        self.dev, 'mkpart', 'primary',
+                                        'ext2', '-64MiB', '-0',
+                                        run_as_root=True)
+        self.assertEqual(2, mock_list_partitions.call_count)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
+        self.assertFalse(mock_fix_gpt.called)
+        self.assertFalse(mock_dd.called)
+        mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_structs',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, 'list_partitions',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_num_parts_exceed(self, mock_get_configdrive,
+                                               mock_get_labelled_partition,
+                                               mock_list_partitions,
+                                               mock_is_disk_gpt, mock_fix_gpt,
+                                               mock_dd, mock_unlink):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        partitions = [{'end': 49152, 'number': 1, 'start': 1,
+                       'flags': 'boot', 'filesystem': 'ext4',
+                       'size': 49151},
+                      {'end': 51099, 'number': 2, 'start': 49153,
+                       'flags': '', 'filesystem': '', 'size': 2046},
+                      {'end': 51099, 'number': 3, 'start': 49153,
+                       'flags': '', 'filesystem': '', 'size': 2046},
+                      {'end': 51099, 'number': 4, 'start': 49153,
+                       'flags': '', 'filesystem': '', 'size': 2046}]
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+        mock_is_disk_gpt.return_value = False
+        mock_list_partitions.side_effect = [partitions, partitions]
+
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Config drive cannot be created for node',
+                               disk_utils.create_config_drive_partition,
+                               self.node_uuid, self.dev, config_url)
+
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        self.assertEqual(2, mock_list_partitions.call_count)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        self.assertFalse(mock_fix_gpt.called)
+        self.assertFalse(mock_dd.called)
+        mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_conf_drive_sz_exceed(self, mock_get_configdrive,
+                                                   mock_get_labelled_partition,
+                                                   mock_unlink, mock_execute):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 65
+
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Config drive size exceeds maximum limit',
+                               disk_utils.create_config_drive_partition,
+                               self.node_uuid, self.dev, config_url)
+
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        mock_unlink.assert_called_with(configdrive_file)

@@ -67,6 +67,12 @@ LOG = logging.getLogger(__name__)
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
                               "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
 
+CONFIGDRIVE_LABEL = "config-2"
+MAX_CONFIG_DRIVE_SIZE_MB = 64
+
+# Maximum disk size supported by MBR is 2TB (2 * 1024 * 1024 MB)
+MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR = 2097152
+
 
 def list_partitions(device):
     """Get partitions information from given device.
@@ -539,3 +545,221 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
 def list_opts():
     """Entry point for oslo-config-generator."""
     return [('disk_utils', opts)]
+
+
+def _is_disk_larger_than_max_size(device, node_uuid):
+    """Check if total disk size exceeds 2TB msdos limit
+
+    :param device: device path.
+    :param node_uuid: node's uuid. Used for logging.
+    :raises: InstanceDeployFailure, if any disk partitioning related
+        commands fail.
+    :returns: True if total disk size exceeds 2TB. Returns False otherwise.
+    """
+    try:
+        disksize_bytes = utils.execute('blockdev', '--getsize64', device,
+                                       use_standard_locale=True,
+                                       run_as_root=True)
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        msg = (_('Failed to get size of disk %(disk)s for node %(node)s. '
+                 'Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+
+    disksize_mb = int(disksize_bytes) // 1024 // 1024
+
+    return disksize_mb > MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR
+
+
+def _get_labelled_partition(device, label, node_uuid):
+    """Check and return if partition with given label exists
+
+    :param device: The device path.
+    :param label: Partition label
+    :param node_uuid: UUID of the Node. Used for logging.
+    :raises: InstanceDeployFailure, if any disk partitioning related
+        commands fail.
+    :returns: block device file for partition if it exists; otherwise it
+              returns None.
+    """
+    try:
+        utils.execute('partprobe', device, run_as_root=True)
+        label_arg = 'LABEL=%s' % label
+        output, err = utils.execute('blkid', '-o', 'device', device,
+                                    '-t', label_arg, check_exit_code=[0, 2],
+                                    use_standard_locale=True, run_as_root=True)
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        msg = (_('Failed to retrieve partition labels on disk %(disk)s '
+                 'for node %(node)s. Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+
+    if output:
+        if len(output.split()) > 1:
+            raise exception.InstanceDeployFailure(
+                _('More than one config drive exists on device %(device)s '
+                  'for node %(node)s.')
+                % {'device': device, 'node': node_uuid})
+
+        return output.rstrip()
+
+
+def _is_disk_gpt_partitioned(device, node_uuid):
+    """Checks if the disk is GPT partitioned
+
+    :param device: The device path.
+    :param node_uuid: UUID of the Node. Used for logging.
+    :raises: InstanceDeployFailure, if any disk partitioning related
+        commands fail.
+    :param node_uuid: UUID of the Node
+    :returns: Boolean. Returns True if disk is GPT partitioned
+    """
+    try:
+        output = utils.execute('blkid', '-p', '-o', 'value', '-s', 'PTTYPE',
+                               device, use_standard_locale=True,
+                               run_as_root=True)
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        msg = (_('Failed to retrieve partition table type for disk %(disk)s '
+                 'for node %(node)s. Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+
+    return 'gpt' in output
+
+
+def _fix_gpt_structs(device, node_uuid):
+    """Checks backup GPT data structures and moves them to end of the device
+
+    :param device: The device path.
+    :param node_uuid: UUID of the Node. Used for logging.
+    :raises: InstanceDeployFailure, if any disk partitioning related
+        commands fail.
+    """
+    try:
+        output, err = utils.execute('partprobe', device,
+                                    use_standard_locale=True,
+                                    run_as_root=True)
+
+        search_str = "fix the GPT to use all of the space"
+        if search_str in err:
+            utils.execute('sgdisk', '-e', device, run_as_root=True)
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        msg = (_('Failed to fix GPT data structures on disk %(disk)s '
+                 'for node %(node)s. Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+
+
+def create_config_drive_partition(node_uuid, device, configdrive):
+    """Create a partition for config drive
+
+    Checks if the device is GPT or MBR partitioned and creates config drive
+    partition accordingly.
+
+    :param node_uuid: UUID of the Node.
+    :param device: The device path.
+    :param configdrive: Base64 encoded Gzipped configdrive content or
+        configdrive HTTP URL.
+    :raises: InstanceDeployFailure if config drive size exceeds maximum limit
+        or if it fails to create config drive.
+    """
+    confdrive_file = None
+    try:
+        config_drive_part = _get_labelled_partition(device,
+                                                    CONFIGDRIVE_LABEL,
+                                                    node_uuid)
+
+        confdrive_mb, confdrive_file = _get_configdrive(configdrive,
+                                                        node_uuid)
+        if confdrive_mb > MAX_CONFIG_DRIVE_SIZE_MB:
+                raise exception.InstanceDeployFailure(
+                    _('Config drive size exceeds maximum limit of 64MiB. '
+                      'Size of the given config drive is %(size)d MiB for '
+                      'node %(node)s.')
+                    % {'size': confdrive_mb, 'node': node_uuid})
+
+        LOG.debug("Adding config drive partition %(size)d MiB to "
+                  "device: %(dev)s for node %(node)s",
+                  {'dev': device, 'size': confdrive_mb, 'node': node_uuid})
+
+        if config_drive_part:
+            LOG.debug("Configdrive for node %(node)s exists at "
+                      "%(part)s",
+                      {'node': node_uuid, 'part': config_drive_part})
+        else:
+            cur_parts = set(part['number'] for part in list_partitions(device))
+
+            if _is_disk_gpt_partitioned(device, node_uuid):
+                _fix_gpt_structs(device, node_uuid)
+                create_option = '0:-%dMB:0' % MAX_CONFIG_DRIVE_SIZE_MB
+                utils.execute('sgdisk', '-n', create_option, device,
+                              run_as_root=True)
+            else:
+                # Check if the disk has 4 partitions. The MBR based disk
+                # cannot have more than 4 partitions.
+                # TODO(stendulker): One can use logical partitions to create
+                # a config drive if there are 4 primary partitions.
+                # https://bugs.launchpad.net/ironic/+bug/1561283
+                num_parts = len(list_partitions(device))
+                if num_parts > 3:
+                    raise exception.InstanceDeployFailure(
+                        _('Config drive cannot be created for node %(node)s. '
+                          'Disk uses MBR partitioning and already has '
+                          '%(parts)d primary partitions.')
+                        % {'node': node_uuid, 'parts': num_parts})
+
+                # Check if disk size exceeds 2TB msdos limit
+                startlimit = '-%dMiB' % MAX_CONFIG_DRIVE_SIZE_MB
+                endlimit = '-0'
+                if _is_disk_larger_than_max_size(device, node_uuid):
+                    # Need to create a small partition at 2TB limit
+                    LOG.warning(_LW("Disk size is larger than 2TB for "
+                                    "node %(node)s. Creating config drive "
+                                    "at the end of the disk %(disk)s."),
+                                {'node': node_uuid, 'disk': device})
+                    startlimit = (MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR -
+                                  MAX_CONFIG_DRIVE_SIZE_MB - 1)
+                    endlimit = MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR - 1
+
+                utils.execute('parted', '-a', 'optimal', '-s', '--', device,
+                              'mkpart', 'primary', 'ext2', startlimit,
+                              endlimit, run_as_root=True)
+
+            upd_parts = set(part['number'] for part in list_partitions(device))
+            new_part = set(upd_parts) - set(cur_parts)
+            if len(new_part) != 1:
+                raise exception.InstanceDeployFailure(
+                    _('Disk partitioning failed on device %(device)s. '
+                      'Unable to retrive config drive partition information.')
+                    % {'device': device})
+
+            if is_iscsi_device(device, node_uuid):
+                config_drive_part = '%s-part%s' % (device, new_part.pop())
+            else:
+                config_drive_part = '%s%s' % (device, new_part.pop())
+
+        dd(confdrive_file, config_drive_part)
+        LOG.info(_LI("Configdrive for node %(node)s successfully "
+                     "copied onto partition %(part)s"),
+                 {'node': node_uuid, 'part': config_drive_part})
+
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        msg = (_('Failed to create config drive on disk %(disk)s '
+                 'for node %(node)s. Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+    finally:
+        # If the configdrive was requested make sure we delete the file
+        # after copying the content to the partition
+        if confdrive_file:
+            utils.unlink_without_raise(confdrive_file)
