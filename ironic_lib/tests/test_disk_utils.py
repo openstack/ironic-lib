@@ -259,56 +259,14 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                            'mkpart', 'primary', 'linux-swap', '2049', '2561',
                            'mkpart', 'primary', '', '2561', '3585']
         self.dev = 'fake-dev'
-        expected_result = {'ephemeral': 'fake-dev1',
-                           'swap': 'fake-dev2',
-                           'root': 'fake-dev3'}
+        expected_result = {'ephemeral': 'fake-dev-part1',
+                           'swap': 'fake-dev-part2',
+                           'root': 'fake-dev-part3'}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
         result = disk_utils.make_partitions(
             self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
             self.configdrive_mb, self.node_uuid)
-
-        parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
-        mock_exc.assert_has_calls([parted_call])
-        self.assertEqual(expected_result, result)
-
-    def test_make_partitions_with_iscsi_device(self, mock_exc):
-        self.ephemeral_mb = 2048
-        expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
-                           'mkpart', 'primary', 'linux-swap', '2049', '2561',
-                           'mkpart', 'primary', '', '2561', '3585']
-        self.dev = 'ip-10.10.1.10:abc-iscsi-xyz-lun-123'
-        expected_result = {'ephemeral': self.dev + '-part1',
-                           'swap': self.dev + '-part2',
-                           'root': self.dev + '-part3'}
-        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
-        result = disk_utils.make_partitions(
-            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
-            self.configdrive_mb, self.node_uuid)
-
-        parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
-        mock_exc.assert_has_calls([parted_call])
-        self.assertEqual(expected_result, result)
-
-    def test_make_partitions_with_iscsi_device_uefi_local(self, mock_exc):
-        self.ephemeral_mb = 2048
-        expected_mkpart = ['mkpart', 'primary', 'fat32', '1', '201',
-                           'set', '1', 'boot', 'on',
-                           'mkpart', 'primary', '', '201', '2249',
-                           'mkpart', 'primary', 'linux-swap', '2249', '2761',
-                           'mkpart', 'primary', '', '2761', '3785']
-        self.dev = 'ip-10.10.1.10:abc-iscsi-xyz-lun-123'
-        expected_result = {'efi system partition': self.dev + '-part1',
-                           'ephemeral': self.dev + '-part2',
-                           'swap': self.dev + '-part3',
-                           'root': self.dev + '-part4'}
-        cmd = self._get_parted_cmd_uefi(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
-        result = disk_utils.make_partitions(
-            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
-            self.configdrive_mb, self.node_uuid, boot_option='local',
-            boot_mode='uefi')
 
         parted_call = mock.call(*cmd, run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
@@ -581,11 +539,3 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
             return_value=mb + 1)
         self.assertEqual(2, disk_utils.get_image_mb('x', False))
         self.assertEqual(2, disk_utils.get_image_mb('x', True))
-
-    def test_is_iscsi_device_True(self):
-        device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
-        self.assertTrue(disk_utils.is_iscsi_device(device))
-
-    def test_is_iscsi_device_False(self):
-        device = '/dev/disk/by-path/fake-dev'
-        self.assertFalse(disk_utils.is_iscsi_device(device))

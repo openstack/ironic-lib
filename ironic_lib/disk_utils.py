@@ -66,8 +66,6 @@ LOG = logging.getLogger(__name__)
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
                               "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
 
-_ISCSI_RE = re.compile(r"^ip-[\d+.]*:\w+-iscsi-[\w+.]*-lun-\d+")
-
 
 def list_partitions(device):
     """Get partitions information from given device.
@@ -98,12 +96,6 @@ def list_partitions(device):
                   for i, x in enumerate(match.groups())]
         result.append(dict(zip(fields, groups)))
     return result
-
-
-def is_iscsi_device(dev):
-    """check whether the device path belongs to an iscsi device. """
-    basename = os.path.basename(dev)
-    return bool(_ISCSI_RE.match(basename))
 
 
 def get_disk_identifier(dev):
@@ -155,12 +147,7 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     LOG.debug("Starting to partition the disk device: %(dev)s "
               "for node %(node)s",
               {'dev': dev, 'node': node_uuid})
-
-    if is_iscsi_device(dev):
-        part_template = dev + '-part%d'
-    else:
-        part_template = dev + '%d'
-
+    part_template = dev + '-part%d'
     part_dict = {}
 
     # For uefi localboot, switch partition table to gpt and create the efi
