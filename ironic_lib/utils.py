@@ -39,8 +39,8 @@ utils_opts = [
                deprecated_group='DEFAULT'),
     cfg.StrOpt('rootwrap_helper_cmd',
                default="",
-               help='Path to the rootwrap configuration file to use for '
-                    'running commands as root.'),
+               help='Command that is used with the path to the rootwrap '
+                    'configuration file, when running commands as root.'),
     cfg.StrOpt('tempdir',
                default=tempfile.gettempdir(),
                help='Explicitly specify the temporary working directory.',
