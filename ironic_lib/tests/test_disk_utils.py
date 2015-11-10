@@ -449,8 +449,11 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
     @mock.patch.object(gzip, 'GzipFile')
     def test_get_configdrive(self, mock_gzip, mock_requests, mock_copy):
         mock_requests.return_value = mock.MagicMock(content='Zm9vYmFy')
-        disk_utils._get_configdrive('http://1.2.3.4/cd',
-                                    'fake-node-uuid')
+        tempdir = tempfile.mkdtemp()
+        (size, path) = disk_utils._get_configdrive('http://1.2.3.4/cd',
+                                                   'fake-node-uuid',
+                                                   tempdir=tempdir)
+        self.assertTrue(path.startswith(tempdir))
         mock_requests.assert_called_once_with('http://1.2.3.4/cd')
         mock_gzip.assert_called_once_with('configdrive', 'rb',
                                           fileobj=mock.ANY)

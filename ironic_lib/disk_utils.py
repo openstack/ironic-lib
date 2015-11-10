@@ -332,12 +332,13 @@ def destroy_disk_metadata(dev, node_uuid):
                  "%(node)s"), {'dev': dev, 'node': node_uuid})
 
 
-def _get_configdrive(configdrive, node_uuid):
+def _get_configdrive(configdrive, node_uuid, tempdir=None):
     """Get the information about size and location of the configdrive.
 
     :param configdrive: Base64 encoded Gzipped configdrive content or
         configdrive HTTP URL.
     :param node_uuid: Node's uuid. Used for logging.
+    :param tempdir: temporary directory for the temporary configdrive file
     :raises: InstanceDeployFailure if it can't download or decode the
        config drive.
     :returns: A tuple with the size in MiB and path to the uncompressed
@@ -368,7 +369,7 @@ def _get_configdrive(configdrive, node_uuid):
 
     configdrive_file = tempfile.NamedTemporaryFile(delete=False,
                                                    prefix='configdrive',
-                                                   dir=CONF.ironic_lib.tempdir)
+                                                   dir=tempdir)
     configdrive_mb = 0
     with gzip.GzipFile('configdrive', 'rb', fileobj=data) as gunzipped:
         try:
@@ -393,8 +394,8 @@ def _get_configdrive(configdrive, node_uuid):
 
 def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                  image_path, node_uuid, preserve_ephemeral=False,
-                 configdrive=None, boot_option="netboot",
-                 boot_mode="bios"):
+                 configdrive=None, boot_option="netboot", boot_mode="bios",
+                 tempdir=None):
     """Create partitions and copy an image to the root partition.
 
     :param dev: Path for the device to work on.
@@ -413,6 +414,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                         or configdrive HTTP URL.
     :param boot_option: Can be "local" or "netboot". "netboot" by default.
     :param boot_mode: Can be "bios" or "uefi". "bios" by default.
+    :param tempdir: A temporary directory
     :returns: a dictionary containing the following keys:
         'root uuid': UUID of root partition
         'efi system partition uuid': UUID of the uefi system partition
@@ -433,8 +435,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         configdrive_mb = 0
         configdrive_file = None
         if configdrive:
-            configdrive_mb, configdrive_file = _get_configdrive(configdrive,
-                                                                node_uuid)
+            configdrive_mb, configdrive_file = _get_configdrive(
+                configdrive, node_uuid, tempdir=tempdir)
 
         part_dict = make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
                                     configdrive_mb, node_uuid,

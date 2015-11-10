@@ -21,7 +21,6 @@
 import errno
 import logging
 import os
-import tempfile
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -41,10 +40,6 @@ utils_opts = [
                default="",
                help='Command that is used with the path to the rootwrap '
                     'configuration file, when running commands as root.'),
-    cfg.StrOpt('tempdir',
-               default=tempfile.gettempdir(),
-               help='Explicitly specify the temporary working directory.',
-               deprecated_group='DEFAULT'),
 ]
 
 CONF = cfg.CONF
