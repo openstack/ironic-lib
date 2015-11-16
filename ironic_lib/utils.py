@@ -31,27 +31,16 @@ from ironic_lib.common.i18n import _LW
 from ironic_lib import exception
 
 utils_opts = [
-    cfg.StrOpt('rootwrap_config',
-               default="",
-               help='Path to the rootwrap configuration file to use for '
-                    'running commands as root.',
-               deprecated_group='DEFAULT'),
-    cfg.StrOpt('rootwrap_helper_cmd',
-               default="",
-               help='Command that is used with the path to the rootwrap '
-                    'configuration file, when running commands as root.'),
+    cfg.StrOpt('root_helper',
+               default=None,
+               help='Command that is prefixed to commands that are run as '
+                    'root. If not specified, no commands are run as root.'),
 ]
 
 CONF = cfg.CONF
 CONF.register_opts(utils_opts, group='ironic_lib')
 
 LOG = logging.getLogger(__name__)
-
-
-def _get_root_helper():
-    root_helper = '%s %s' % (CONF.ironic_lib.rootwrap_helper_cmd,
-                             CONF.ironic_lib.rootwrap_config)
-    return root_helper
 
 
 def execute(*cmd, **kwargs):
@@ -71,8 +60,13 @@ def execute(*cmd, **kwargs):
         env = kwargs.pop('env_variables', os.environ.copy())
         env['LC_ALL'] = 'C'
         kwargs['env_variables'] = env
-    if kwargs.get('run_as_root') and 'root_helper' not in kwargs:
-        kwargs['root_helper'] = _get_root_helper()
+
+    # If root_helper config is not specified, no commands are run as root.
+    if not CONF.ironic_lib.root_helper:
+        kwargs['run_as_root'] = False
+    else:
+        kwargs['root_helper'] = CONF.ironic_lib.root_helper
+
     result = processutils.execute(*cmd, **kwargs)
     LOG.debug('Execution completed, command line is "%s"',
               ' '.join(map(str, cmd)))
