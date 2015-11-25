@@ -32,7 +32,7 @@ from ironic_lib import exception
 
 utils_opts = [
     cfg.StrOpt('root_helper',
-               default=None,
+               default='sudo ironic-rootwrap /etc/ironic/rootwrap.conf',
                help='Command that is prefixed to commands that are run as '
                     'root. If not specified, no commands are run as root.'),
 ]
@@ -62,10 +62,12 @@ def execute(*cmd, **kwargs):
         kwargs['env_variables'] = env
 
     # If root_helper config is not specified, no commands are run as root.
-    if not CONF.ironic_lib.root_helper:
-        kwargs['run_as_root'] = False
-    else:
-        kwargs['root_helper'] = CONF.ironic_lib.root_helper
+    run_as_root = kwargs.get('run_as_root', False)
+    if run_as_root:
+        if not CONF.ironic_lib.root_helper:
+            kwargs['run_as_root'] = False
+        else:
+            kwargs['root_helper'] = CONF.ironic_lib.root_helper
 
     result = processutils.execute(*cmd, **kwargs)
     LOG.debug('Execution completed, command line is "%s"',

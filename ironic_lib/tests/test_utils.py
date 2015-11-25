@@ -146,8 +146,7 @@ grep foo
                                                           execute_mock):
         utils.execute('foo', use_standard_locale=True)
         execute_mock.assert_called_once_with('foo',
-                                             env_variables={'LC_ALL': 'C'},
-                                             run_as_root=False)
+                                             env_variables={'LC_ALL': 'C'})
 
     @mock.patch.object(processutils, 'execute')
     def test_execute_use_standard_locale_with_env_variables(self,
@@ -156,16 +155,14 @@ grep foo
                       env_variables={'foo': 'bar'})
         execute_mock.assert_called_once_with('foo',
                                              env_variables={'LC_ALL': 'C',
-                                                            'foo': 'bar'},
-                                             run_as_root=False)
+                                                            'foo': 'bar'})
 
     @mock.patch.object(processutils, 'execute')
     def test_execute_not_use_standard_locale(self, execute_mock):
         utils.execute('foo', use_standard_locale=False,
                       env_variables={'foo': 'bar'})
         execute_mock.assert_called_once_with('foo',
-                                             env_variables={'foo': 'bar'},
-                                             run_as_root=False)
+                                             env_variables={'foo': 'bar'})
 
     def test_execute_without_root_helper(self):
         CONF.set_override('root_helper', None, group='ironic_lib')
@@ -180,11 +177,16 @@ grep foo
             execute_mock.assert_called_once_with('foo', run_as_root=False)
 
     def test_execute_with_root_helper(self):
-        CONF.set_override('root_helper', 'sudo', group='ironic_lib')
+        with mock.patch.object(processutils, 'execute') as execute_mock:
+            utils.execute('foo', run_as_root=False)
+            execute_mock.assert_called_once_with('foo', run_as_root=False)
+
+    def test_execute_with_root_helper_run_as_root(self):
         with mock.patch.object(processutils, 'execute') as execute_mock:
             utils.execute('foo', run_as_root=True)
-            execute_mock.assert_called_once_with('foo', run_as_root=True,
-                                                 root_helper='sudo')
+            execute_mock.assert_called_once_with(
+                'foo', run_as_root=True,
+                root_helper=CONF.ironic_lib.root_helper)
 
 
 class MkfsTestCase(test_base.BaseTestCase):
