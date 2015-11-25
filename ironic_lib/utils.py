@@ -119,8 +119,8 @@ def unlink_without_raise(path):
         if e.errno == errno.ENOENT:
             return
         else:
-            LOG.warn(_LW("Failed to unlink %(path)s, error: %(e)s"),
-                     {'path': path, 'e': e})
+            LOG.warning(_LW("Failed to unlink %(path)s, error: %(e)s"),
+                        {'path': path, 'e': e})
 
 
 def dd(src, dst, *args):
