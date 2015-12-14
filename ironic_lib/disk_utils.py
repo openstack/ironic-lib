@@ -29,9 +29,8 @@ import time
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_utils import excutils
+from oslo_utils import imageutils
 from oslo_utils import units
-
-from ironic_lib.openstack.common import imageutils
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE
