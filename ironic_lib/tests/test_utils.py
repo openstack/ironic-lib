@@ -32,13 +32,13 @@ CONF = cfg.CONF
 class BareMetalUtilsTestCase(test_base.BaseTestCase):
 
     def test_unlink(self):
-        with mock.patch.object(os, "unlink") as unlink_mock:
+        with mock.patch.object(os, "unlink", autospec=True) as unlink_mock:
             unlink_mock.return_value = None
             utils.unlink_without_raise("/fake/path")
             unlink_mock.assert_called_once_with("/fake/path")
 
     def test_unlink_ENOENT(self):
-        with mock.patch.object(os, "unlink") as unlink_mock:
+        with mock.patch.object(os, "unlink", autospec=True) as unlink_mock:
             unlink_mock.side_effect = OSError(errno.ENOENT)
             utils.unlink_without_raise("/fake/path")
             unlink_mock.assert_called_once_with("/fake/path")
@@ -191,7 +191,7 @@ grep foo
 
 class MkfsTestCase(test_base.BaseTestCase):
 
-    @mock.patch.object(utils, 'execute')
+    @mock.patch.object(utils, 'execute', autospec=True)
     def test_mkfs(self, execute_mock):
         utils.mkfs('ext4', '/my/block/dev')
         utils.mkfs('msdos', '/my/msdos/block/dev')
@@ -208,7 +208,7 @@ class MkfsTestCase(test_base.BaseTestCase):
                               use_standard_locale=True)]
         self.assertEqual(expected, execute_mock.call_args_list)
 
-    @mock.patch.object(utils, 'execute')
+    @mock.patch.object(utils, 'execute', autospec=True)
     def test_mkfs_with_label(self, execute_mock):
         utils.mkfs('ext4', '/my/block/dev', 'ext4-vol')
         utils.mkfs('msdos', '/my/msdos/block/dev', 'msdos-vol')
@@ -225,14 +225,14 @@ class MkfsTestCase(test_base.BaseTestCase):
                               use_standard_locale=True)]
         self.assertEqual(expected, execute_mock.call_args_list)
 
-    @mock.patch.object(utils, 'execute',
+    @mock.patch.object(utils, 'execute', autospec=True,
                        side_effect=processutils.ProcessExecutionError(
                            stderr=os.strerror(errno.ENOENT)))
     def test_mkfs_with_unsupported_fs(self, execute_mock):
         self.assertRaises(exception.FileSystemNotSupported,
                           utils.mkfs, 'foo', '/my/block/dev')
 
-    @mock.patch.object(utils, 'execute',
+    @mock.patch.object(utils, 'execute', autospec=True,
                        side_effect=processutils.ProcessExecutionError(
                            stderr='fake'))
     def test_mkfs_with_unexpected_error(self, execute_mock):
