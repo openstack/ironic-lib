@@ -24,6 +24,7 @@ import tempfile
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_utils import imageutils
 from oslotest import base as test_base
 import requests
 
@@ -518,6 +519,33 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
         self.assertRaises(exception.InstanceDeployFailure,
                           disk_utils.is_block_device, device)
         mock_os.assert_has_calls([mock.call(device)] * 3)
+
+    @mock.patch.object(imageutils, 'QemuImgInfo', autospec=True)
+    @mock.patch.object(os.path, 'exists', return_value=False, autospec=True)
+    def test_qemu_img_info_path_doesnt_exist(self, path_exists_mock,
+                                             qemu_img_info_mock):
+        disk_utils.qemu_img_info('noimg')
+        path_exists_mock.assert_called_once_with('noimg')
+        qemu_img_info_mock.assert_called_once_with()
+
+    @mock.patch.object(utils, 'execute', return_value=('out', 'err'),
+                       autospec=True)
+    @mock.patch.object(imageutils, 'QemuImgInfo', autospec=True)
+    @mock.patch.object(os.path, 'exists', return_value=True, autospec=True)
+    def test_qemu_img_info_path_exists(self, path_exists_mock,
+                                       qemu_img_info_mock, execute_mock):
+        disk_utils.qemu_img_info('img')
+        path_exists_mock.assert_called_once_with('img')
+        execute_mock.assert_called_once_with('env', 'LC_ALL=C', 'LANG=C',
+                                             'qemu-img', 'info', 'img')
+        qemu_img_info_mock.assert_called_once_with('out')
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_convert_image(self, execute_mock):
+        disk_utils.convert_image('source', 'dest', 'out_format')
+        execute_mock.assert_called_once_with('qemu-img', 'convert', '-O',
+                                             'out_format', 'source', 'dest',
+                                             run_as_root=False)
 
     @mock.patch.object(os.path, 'getsize')
     @mock.patch.object(disk_utils, 'qemu_img_info')
