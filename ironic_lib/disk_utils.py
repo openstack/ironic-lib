@@ -121,6 +121,13 @@ def get_disk_identifier(dev):
     return disk_identifier[0]
 
 
+def is_iscsi_device(dev, node_uuid):
+    """check whether the device path belongs to an iscsi device. """
+
+    iscsi_id = "iqn.2008-10.org.openstack:%s" % node_uuid
+    return iscsi_id in dev
+
+
 def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
                     configdrive_mb, node_uuid, commit=True,
                     boot_option="netboot", boot_mode="bios"):
@@ -148,7 +155,16 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     LOG.debug("Starting to partition the disk device: %(dev)s "
               "for node %(node)s",
               {'dev': dev, 'node': node_uuid})
-    part_template = dev + '-part%d'
+    # the actual device names in the baremetal are like /dev/sda, /dev/sdb etc.
+    # While for the iSCSI device, the naming convention has a format which has
+    # iqn also embedded in it.
+    # When this function is called by ironic-conductor, the iSCSI device name
+    # should be appended by "part%d". While on the baremetal, it should name
+    # the device partitions as /dev/sda1 and not /dev/sda-part1.
+    if is_iscsi_device(dev, node_uuid):
+        part_template = dev + '-part%d'
+    else:
+        part_template = dev + '%d'
     part_dict = {}
 
     # For uefi localboot, switch partition table to gpt and create the efi
