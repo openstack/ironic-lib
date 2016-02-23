@@ -115,7 +115,8 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              self.configdrive_mb,
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
-                                             boot_mode="bios")
+                                             boot_mode="bios",
+                                             disk_label=None)
 
     def test_no_swap_partition(self):
         self.mock_ibd.side_effect = iter([True, False])
@@ -132,7 +133,8 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              self.configdrive_mb,
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
-                                             boot_mode="bios")
+                                             boot_mode="bios",
+                                             disk_label=None)
 
     def test_no_ephemeral_partition(self):
         ephemeral_part = '/dev/fake-part1'
@@ -158,7 +160,8 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              self.configdrive_mb,
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
-                                             boot_mode="bios")
+                                             boot_mode="bios",
+                                             disk_label=None)
 
     @mock.patch.object(utils, 'unlink_without_raise')
     @mock.patch.object(disk_utils, '_get_configdrive')
@@ -190,8 +193,39 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              configdrive_mb, self.node_uuid,
                                              commit=True,
                                              boot_option="netboot",
-                                             boot_mode="bios")
+                                             boot_mode="bios",
+                                             disk_label=None)
         mock_unlink.assert_called_once_with('fake-path')
+
+    @mock.patch.object(utils, 'mkfs', lambda *_: None)
+    @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
+    @mock.patch.object(disk_utils, 'populate_image', lambda *_: None)
+    def test_gpt_disk_label(self):
+        ephemeral_part = '/dev/fake-part1'
+        swap_part = '/dev/fake-part2'
+        root_part = '/dev/fake-part3'
+        ephemeral_mb = 256
+        ephemeral_format = 'exttest'
+
+        self.mock_mp.return_value = {'ephemeral': ephemeral_part,
+                                     'swap': swap_part,
+                                     'root': root_part}
+        self.mock_ibd.return_value = True
+        calls = [mock.call(root_part),
+                 mock.call(swap_part),
+                 mock.call(ephemeral_part)]
+        disk_utils.work_on_disk(self.dev, self.root_mb,
+                                self.swap_mb, ephemeral_mb, ephemeral_format,
+                                self.image_path, self.node_uuid,
+                                disk_label='gpt')
+        self.assertEqual(self.mock_ibd.call_args_list, calls)
+        self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
+                                             self.swap_mb, ephemeral_mb,
+                                             self.configdrive_mb,
+                                             self.node_uuid, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios",
+                                             disk_label='gpt')
 
 
 @mock.patch.object(utils, 'execute')
@@ -206,26 +240,27 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         self.configdrive_mb = 0
         self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
 
-    def _get_parted_cmd(self, dev):
+    def _get_parted_cmd(self, dev, label=None):
+        if label is None:
+            label = 'msdos'
+
         return ['parted', '-a', 'optimal', '-s', dev,
-                '--', 'unit', 'MiB', 'mklabel', 'msdos']
+                '--', 'unit', 'MiB', 'mklabel', label]
 
-    def _get_parted_cmd_uefi(self, dev):
-        return ['parted', '-a', 'optimal', '-s',
-                dev, '--', 'unit', 'MiB', 'mklabel', 'gpt']
-
-    def _test_make_partitions(self, mock_exc, boot_option):
+    def _test_make_partitions(self, mock_exc, boot_option, disk_label=None):
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
                                    self.ephemeral_mb, self.configdrive_mb,
-                                   self.node_uuid, boot_option=boot_option)
+                                   self.node_uuid, boot_option=boot_option,
+                                   disk_label=disk_label)
 
         expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1', '513',
                            'mkpart', 'primary', '', '513', '1537']
         if boot_option == "local":
             expected_mkpart.extend(['set', '2', 'boot', 'on'])
         self.dev = 'fake-dev'
-        parted_cmd = self._get_parted_cmd(self.dev) + expected_mkpart
+        parted_cmd = (self._get_parted_cmd(self.dev, disk_label) +
+                      expected_mkpart)
         parted_call = mock.call(*parted_cmd, use_standard_locale=True,
                                 run_as_root=True, check_exit_code=[0])
         fuser_cmd = ['fuser', 'fake-dev']
@@ -238,6 +273,10 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
 
     def test_make_partitions_local_boot(self, mock_exc):
         self._test_make_partitions(mock_exc, boot_option="local")
+
+    def test_make_partitions_disk_label_gpt(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="netboot",
+                                   disk_label="gpt")
 
     def test_make_partitions_with_ephemeral(self, mock_exc):
         self.ephemeral_mb = 2048
