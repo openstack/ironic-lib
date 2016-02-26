@@ -24,6 +24,7 @@ import tempfile
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_service import loopingcall
 from oslo_utils import imageutils
 from oslotest import base as test_base
 import requests
@@ -367,6 +368,13 @@ class PopulateImageTestCase(test_base.BaseTestCase):
         self.assertFalse(mock_dd.called)
 
 
+def _looping_call_done(*args, **kwargs):
+    raise loopingcall.LoopingCallDone()
+
+
+@mock.patch.object(disk_partitioner.DiskPartitioner,
+                   '_wait_for_disk_to_become_available',
+                   _looping_call_done)
 @mock.patch.object(disk_utils, 'is_block_device', lambda d: True)
 @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
 @mock.patch.object(disk_utils, 'dd', lambda *_: None)
