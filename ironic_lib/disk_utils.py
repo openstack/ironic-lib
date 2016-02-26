@@ -284,49 +284,20 @@ def get_dev_block_size(dev):
 def destroy_disk_metadata(dev, node_uuid):
     """Destroy metadata structures on node's disk.
 
-       Ensure that node's disk appears to be blank without zeroing the entire
-       drive. To do this we will zero the first 18KiB to clear MBR / GPT data
-       and the last 18KiB to clear GPT and other metadata like LVM, veritas,
-       MDADM, DMRAID, etc.
+    Ensure that node's disk magic strings are wiped without zeroing the
+    entire drive. To do this we use the wipefs tool from util-linux.
+
+    :param dev: Path for the device to work on.
+    :param node_uuid: Node's uuid. Used for logging.
     """
     # NOTE(NobodyCam): This is needed to work around bug:
     # https://bugs.launchpad.net/ironic/+bug/1317647
     LOG.debug("Start destroy disk metadata for node %(node)s.",
               {'node': node_uuid})
-    try:
-        utils.dd('/dev/zero', dev, 'bs=512', 'count=36')
-    except processutils.ProcessExecutionError as err:
-        with excutils.save_and_reraise_exception():
-            LOG.error(_LE("Failed to erase beginning of disk for node "
-                          "%(node)s. Command: %(command)s. Error: %(error)s."),
-                      {'node': node_uuid,
-                       'command': err.cmd,
-                       'error': err.stderr})
-
-    # now wipe the end of the disk.
-    # get end of disk seek value
-    try:
-        block_sz = get_dev_block_size(dev)
-    except processutils.ProcessExecutionError as err:
-        with excutils.save_and_reraise_exception():
-            LOG.error(_LE("Failed to get disk block count for node %(node)s. "
-                          "Command: %(command)s. Error: %(error)s."),
-                      {'node': node_uuid,
-                       'command': err.cmd,
-                       'error': err.stderr})
-    else:
-        seek_value = block_sz - 36
-        try:
-            utils.dd('/dev/zero', dev, 'bs=512', 'count=36',
-                     'seek=%d' % seek_value)
-        except processutils.ProcessExecutionError as err:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Failed to erase the end of the disk on node "
-                              "%(node)s. Command: %(command)s. "
-                              "Error: %(error)s."),
-                          {'node': node_uuid,
-                           'command': err.cmd,
-                           'error': err.stderr})
+    utils.execute('wipefs', '--all', dev,
+                  run_as_root=True,
+                  check_exit_code=[0],
+                  use_standard_locale=True)
     LOG.info(_LI("Disk metadata on %(dev)s successfully destroyed for node "
                  "%(node)s"), {'dev': dev, 'node': node_uuid})
 
