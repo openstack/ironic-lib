@@ -24,7 +24,6 @@ from ironic_lib import exception
 from ironic_lib import utils
 
 
-@mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
 class DiskPartitionerTestCase(test_base.BaseTestCase):
 
     def test_add_partition(self):
@@ -74,6 +73,7 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
         mock_utils_exc.assert_called_once_with(
             'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
 
+    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
@@ -104,6 +104,7 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
             'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
         self.assertEqual(2, mock_utils_exc.call_count)
 
+    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
@@ -133,6 +134,8 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
             'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
         self.assertEqual(20, mock_utils_exc.call_count)
 
+    # Mock the eventlet.greenthread.sleep for the looping_call
+    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
