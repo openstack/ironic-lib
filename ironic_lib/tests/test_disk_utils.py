@@ -294,15 +294,40 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
                                 run_as_root=True, check_exit_code=[0])
         mock_exc.assert_has_calls([parted_call])
 
+    def test_make_partitions_with_iscsi_device(self, mock_exc):
+        self.ephemeral_mb = 2048
+        expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
+                           'mkpart', 'primary', 'linux-swap', '2049', '2561',
+                           'mkpart', 'primary', '', '2561', '3585']
+        self.dev = '/dev/iqn.2008-10.org.openstack:%s.fake-9' % self.node_uuid
+        ep = '/dev/iqn.2008-10.org.openstack:%s.fake-9-part1' % self.node_uuid
+        swap = ('/dev/iqn.2008-10.org.openstack:%s.fake-9-part2'
+                % self.node_uuid)
+        root = ('/dev/iqn.2008-10.org.openstack:%s.fake-9-part3'
+                % self.node_uuid)
+        expected_result = {'ephemeral': ep,
+                           'swap': swap,
+                           'root': root}
+        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
+        mock_exc.return_value = (None, None)
+        result = disk_utils.make_partitions(
+            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
+            self.configdrive_mb, self.node_uuid)
+
+        parted_call = mock.call(*cmd, use_standard_locale=True,
+                                run_as_root=True, check_exit_code=[0])
+        mock_exc.assert_has_calls([parted_call])
+        self.assertEqual(expected_result, result)
+
     def test_make_partitions_with_local_device(self, mock_exc):
         self.ephemeral_mb = 2048
         expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
                            'mkpart', 'primary', 'linux-swap', '2049', '2561',
                            'mkpart', 'primary', '', '2561', '3585']
         self.dev = 'fake-dev'
-        expected_result = {'ephemeral': 'fake-dev-part1',
-                           'swap': 'fake-dev-part2',
-                           'root': 'fake-dev-part3'}
+        expected_result = {'ephemeral': 'fake-dev1',
+                           'swap': 'fake-dev2',
+                           'root': 'fake-dev3'}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
         mock_exc.return_value = (None, None)
         result = disk_utils.make_partitions(
