@@ -341,7 +341,6 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         self.assertEqual(expected_result, result)
 
 
-@mock.patch.object(disk_utils, 'get_dev_block_size')
 @mock.patch.object(utils, 'execute')
 class DestroyMetaDataTestCase(test_base.BaseTestCase):
 
@@ -350,39 +349,19 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
         self.dev = 'fake-dev'
         self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
 
-    def test_destroy_disk_metadata(self, mock_exec, mock_gz):
-        mock_gz.return_value = 64
-        expected_calls = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
-                                    'bs=512', 'count=36', run_as_root=True,
-                                    check_exit_code=[0],
-                                    use_standard_locale=True),
-                          mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
-                                    'bs=512', 'count=36', 'seek=28',
+    def test_destroy_disk_metadata(self, mock_exec):
+        expected_calls = [mock.call('wipefs', '--all', 'fake-dev',
                                     run_as_root=True,
                                     check_exit_code=[0],
                                     use_standard_locale=True)]
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_calls)
-        self.assertTrue(mock_gz.called)
 
-    def test_destroy_disk_metadata_get_dev_size_fail(self, mock_exec, mock_gz):
-        mock_gz.side_effect = processutils.ProcessExecutionError
-
-        expected_call = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
-                                   'bs=512', 'count=36', run_as_root=True,
-                                   check_exit_code=[0],
-                                   use_standard_locale=True)]
-        self.assertRaises(processutils.ProcessExecutionError,
-                          disk_utils.destroy_disk_metadata,
-                          self.dev,
-                          self.node_uuid)
-        mock_exec.assert_has_calls(expected_call)
-
-    def test_destroy_disk_metadata_dd_fail(self, mock_exec, mock_gz):
+    def test_destroy_disk_metadata_wipefs_fail(self, mock_exec):
         mock_exec.side_effect = processutils.ProcessExecutionError
 
-        expected_call = [mock.call('dd', 'if=/dev/zero', 'of=fake-dev',
-                                   'bs=512', 'count=36', run_as_root=True,
+        expected_call = [mock.call('wipefs', '--all', 'fake-dev',
+                                   run_as_root=True,
                                    check_exit_code=[0],
                                    use_standard_locale=True)]
         self.assertRaises(processutils.ProcessExecutionError,
@@ -390,7 +369,6 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
                           self.dev,
                           self.node_uuid)
         mock_exec.assert_has_calls(expected_call)
-        self.assertFalse(mock_gz.called)
 
 
 @mock.patch.object(utils, 'execute')
