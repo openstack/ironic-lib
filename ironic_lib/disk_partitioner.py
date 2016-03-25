@@ -175,3 +175,8 @@ class DiskPartitioner(object):
                       'exited with "%(fuser_err)s". Time out waiting for '
                       'completion.')
                     % {'device': self._device, 'fuser_err': fuser_err[0]})
+
+
+def list_opts():
+    """Entry point for oslo-config-generator."""
+    return [('disk_partitioner', opts)]

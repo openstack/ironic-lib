@@ -143,3 +143,8 @@ def dd(src, dst, *args):
 def is_http_url(url):
     url = url.lower()
     return url.startswith('http://') or url.startswith('https://')
+
+
+def list_opts():
+    """Entry point for oslo-config-generator."""
+    return [('ironic_lib', utils_opts)]
