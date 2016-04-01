@@ -99,3 +99,7 @@ class InstanceDeployFailure(IronicException):
 class FileSystemNotSupported(IronicException):
     message = _("Failed to create a file system. "
                 "File system %(fs)s is not supported.")
+
+
+class InvalidMetricConfig(IronicException):
+    message = _("Invalid value for metrics config option: %(reason)s")
