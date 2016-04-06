@@ -513,3 +513,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
             LOG.error(_LE("Failed to detect %s"), part)
 
     return uuids_to_return
+
+
+def list_opts():
+    """Entry point for oslo-config-generator."""
+    return [('disk_utils', opts)]
