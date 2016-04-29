@@ -80,7 +80,7 @@ class DiskPartitioner(object):
                       use_standard_locale=True, run_as_root=True)
 
     def add_partition(self, size, part_type='primary', fs_type='',
-                      bootable=False):
+                      boot_flag=None):
         """Add a partition.
 
         :param size: The size of the partition in MiB.
@@ -90,15 +90,16 @@ class DiskPartitioner(object):
                         fat16, HFS, linux-swap, NTFS, reiserfs, ufs.
                         If blank (''), it will create a Linux native
                         partition (83).
-        :param bootable: Boolean value; whether the partition is bootable
-                         or not.
+        :param boot_flag: Boot flag that needs to be configured on the
+                          partition. Ignored if None. It can take values
+                          'bios_grub', 'boot'.
         :returns: The partition number.
 
         """
         self._partitions.append({'size': size,
                                  'type': part_type,
                                  'fs_type': fs_type,
-                                 'bootable': bootable})
+                                 'boot_flag': boot_flag})
         return len(self._partitions)
 
     def get_partitions(self):
@@ -145,8 +146,8 @@ class DiskPartitioner(object):
             end = start + part['size']
             cmd_args.extend(['mkpart', part['type'], part['fs_type'],
                              str(start), str(end)])
-            if part['bootable']:
-                cmd_args.extend(['set', str(num), 'boot', 'on'])
+            if part['boot_flag']:
+                cmd_args.extend(['set', str(num), part['boot_flag'], 'on'])
             start = end
 
         self._exec(*cmd_args)

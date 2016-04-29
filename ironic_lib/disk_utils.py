@@ -47,6 +47,10 @@ opts = [
                help='Size of EFI system partition in MiB when configuring '
                     'UEFI systems for local boot.',
                deprecated_group='deploy'),
+    cfg.IntOpt('bios_boot_partition_size',
+               default=1,
+               help='Size of BIOS Boot partition in MiB when configuring '
+                    'GPT partitioned systems for local boot in BIOS.'),
     cfg.StrOpt('dd_block_size',
                default='1M',
                help='Block size to use when writing to the nodes disk.',
@@ -180,8 +184,13 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     if boot_mode == "uefi" and boot_option == "local":
         part_num = dp.add_partition(CONF.disk_utils.efi_system_partition_size,
                                     fs_type='fat32',
-                                    bootable=True)
+                                    boot_flag='boot')
         part_dict['efi system partition'] = part_template % part_num
+
+    if boot_mode == "bios" and boot_option == "local" and disk_label == "gpt":
+        part_num = dp.add_partition(CONF.disk_utils.bios_boot_partition_size,
+                                    boot_flag='bios_grub')
+        part_dict['BIOS Boot partition'] = part_template % part_num
 
     if ephemeral_mb:
         LOG.debug("Add ephemeral partition (%(size)d MB) to device: %(dev)s "
@@ -208,8 +217,14 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     LOG.debug("Add root partition (%(size)d MB) to device: %(dev)s "
               "for node %(node)s",
               {'dev': dev, 'size': root_mb, 'node': node_uuid})
-    part_num = dp.add_partition(root_mb, bootable=(boot_option == "local" and
-                                                   boot_mode == "bios"))
+
+    boot_val = None
+    if (boot_mode == "bios" and boot_option == "local" and
+        disk_label == "msdos"):
+        boot_val = 'boot'
+
+    part_num = dp.add_partition(root_mb, boot_flag=boot_val)
+
     part_dict['root'] = part_template % part_num
 
     if commit:

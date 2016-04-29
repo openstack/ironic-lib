@@ -240,6 +240,8 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         self.ephemeral_mb = 0
         self.configdrive_mb = 0
         self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
+        self.efi_size = CONF.disk_utils.efi_system_partition_size
+        self.bios_size = CONF.disk_utils.bios_boot_partition_size
 
     def _get_parted_cmd(self, dev, label=None):
         if label is None:
@@ -248,17 +250,44 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         return ['parted', '-a', 'optimal', '-s', dev,
                 '--', 'unit', 'MiB', 'mklabel', label]
 
-    def _test_make_partitions(self, mock_exc, boot_option, disk_label=None):
+    def _test_make_partitions(self, mock_exc, boot_option, boot_mode='bios',
+                              disk_label=None):
         mock_exc.return_value = (None, None)
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
                                    self.ephemeral_mb, self.configdrive_mb,
                                    self.node_uuid, boot_option=boot_option,
-                                   disk_label=disk_label)
+                                   boot_mode=boot_mode, disk_label=disk_label)
 
-        expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1', '513',
-                           'mkpart', 'primary', '', '513', '1537']
-        if boot_option == "local":
-            expected_mkpart.extend(['set', '2', 'boot', 'on'])
+        _s = lambda x, sz: x + sz
+
+        if boot_option == "local" and boot_mode == "uefi":
+            add_efi_sz = lambda x: str(_s(x, self.efi_size))
+            expected_mkpart = ['mkpart', 'primary', 'fat32', '1',
+                               add_efi_sz(1),
+                               'set', '1', 'boot', 'on',
+                               'mkpart', 'primary', 'linux-swap',
+                               add_efi_sz(1), add_efi_sz(513), 'mkpart',
+                               'primary', '', add_efi_sz(513),
+                               add_efi_sz(1537)]
+        else:
+            if boot_option == "local":
+                if disk_label == "gpt":
+                    add_bios_sz = lambda x: str(_s(x, self.bios_size))
+                    expected_mkpart = ['mkpart', 'primary', '', '1',
+                                       add_bios_sz(1),
+                                       'set', '1', 'bios_grub', 'on',
+                                       'mkpart', 'primary', 'linux-swap',
+                                       add_bios_sz(1), add_bios_sz(513),
+                                       'mkpart', 'primary', '',
+                                       add_bios_sz(513), add_bios_sz(1537)]
+                else:
+                    expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1',
+                                       '513', 'mkpart', 'primary', '', '513',
+                                       '1537', 'set', '2', 'boot', 'on']
+            else:
+                expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1',
+                                   '513', 'mkpart', 'primary', '', '513',
+                                   '1537']
         self.dev = 'fake-dev'
         parted_cmd = (self._get_parted_cmd(self.dev, disk_label) +
                       expected_mkpart)
@@ -274,6 +303,14 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
 
     def test_make_partitions_local_boot(self, mock_exc):
         self._test_make_partitions(mock_exc, boot_option="local")
+
+    def test_make_partitions_local_boot_uefi(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="local",
+                                   boot_mode="uefi", disk_label="gpt")
+
+    def test_make_partitions_local_boot_gpt_bios(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="local",
+                                   disk_label="gpt")
 
     def test_make_partitions_disk_label_gpt(self, mock_exc):
         self._test_make_partitions(mock_exc, boot_option="netboot",
