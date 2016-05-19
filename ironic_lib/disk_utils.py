@@ -45,21 +45,18 @@ opts = [
     cfg.IntOpt('efi_system_partition_size',
                default=200,
                help='Size of EFI system partition in MiB when configuring '
-                    'UEFI systems for local boot.',
-               deprecated_group='deploy'),
+                    'UEFI systems for local boot.'),
     cfg.IntOpt('bios_boot_partition_size',
                default=1,
                help='Size of BIOS Boot partition in MiB when configuring '
                     'GPT partitioned systems for local boot in BIOS.'),
     cfg.StrOpt('dd_block_size',
                default='1M',
-               help='Block size to use when writing to the nodes disk.',
-               deprecated_group='deploy'),
+               help='Block size to use when writing to the nodes disk.'),
     cfg.IntOpt('iscsi_verify_attempts',
                default=3,
                help='Maximum attempts to verify an iSCSI connection is '
-                    'active, sleeping 1 second between attempts.',
-               deprecated_group='deploy'),
+                    'active, sleeping 1 second between attempts.'),
 ]
 
 CONF = cfg.CONF
