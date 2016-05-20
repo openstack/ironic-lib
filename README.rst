@@ -5,7 +5,8 @@ ironic_lib
 Overview
 --------
 
-A common library to be used by various projects in the Ironic ecosystem.
+A common library to be used **exclusively** by projects under the `Ironic
+governance <http://governance.openstack.org/reference/projects/ironic.html>`_.
 
 Running Tests
 -------------
