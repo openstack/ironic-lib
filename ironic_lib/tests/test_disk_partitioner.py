@@ -30,21 +30,26 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         dp.add_partition(1024)
         dp.add_partition(512, fs_type='linux-swap')
-        dp.add_partition(2048, bootable=True)
-        expected = [(1, {'bootable': False,
+        dp.add_partition(2048, boot_flag='boot')
+        dp.add_partition(2048, boot_flag='bios_grub')
+        expected = [(1, {'boot_flag': None,
                          'fs_type': '',
                          'type': 'primary',
                          'size': 1024}),
-                    (2, {'bootable': False,
+                    (2, {'boot_flag': None,
                          'fs_type': 'linux-swap',
                          'type': 'primary',
                          'size': 512}),
-                    (3, {'bootable': True,
+                    (3, {'boot_flag': 'boot',
+                         'fs_type': '',
+                         'type': 'primary',
+                         'size': 2048}),
+                    (4, {'boot_flag': 'bios_grub',
                          'fs_type': '',
                          'type': 'primary',
                          'size': 2048})]
         partitions = [(n, p) for n, p in dp.get_partitions()]
-        self.assertThat(partitions, HasLength(3))
+        self.assertThat(partitions, HasLength(4))
         self.assertEqual(expected, partitions)
 
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
@@ -52,11 +57,15 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_commit(self, mock_utils_exc, mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
-        fake_parts = [(1, {'bootable': False,
+        fake_parts = [(1, {'boot_flag': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
-                      (2, {'bootable': True,
+                      (2, {'boot_flag': 'boot',
+                           'fs_type': 'fake-fs-type',
+                           'type': 'fake-type',
+                           'size': 1}),
+                      (3, {'boot_flag': 'bios_grub',
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -69,7 +78,9 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
             mock.ANY, 'mklabel', 'msdos',
             'mkpart', 'fake-type', 'fake-fs-type', '1', '2',
             'mkpart', 'fake-type', 'fake-fs-type', '2', '3',
-            'set', '2', 'boot', 'on')
+            'set', '2', 'boot', 'on',
+            'mkpart', 'fake-type', 'fake-fs-type', '3', '4',
+            'set', '3', 'bios_grub', 'on')
         mock_utils_exc.assert_called_once_with(
             'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
 
@@ -80,11 +91,11 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
     def test_commit_with_device_is_busy_once(self, mock_utils_exc,
                                              mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
-        fake_parts = [(1, {'bootable': False,
+        fake_parts = [(1, {'boot_flag': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
-                      (2, {'bootable': True,
+                      (2, {'boot_flag': 'boot',
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -111,11 +122,11 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
     def test_commit_with_device_is_always_busy(self, mock_utils_exc,
                                                mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
-        fake_parts = [(1, {'bootable': False,
+        fake_parts = [(1, {'boot_flag': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
-                      (2, {'bootable': True,
+                      (2, {'boot_flag': 'boot',
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -142,11 +153,11 @@ class DiskPartitionerTestCase(test_base.BaseTestCase):
     def test_commit_with_device_disconnected(self, mock_utils_exc,
                                              mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
-        fake_parts = [(1, {'bootable': False,
+        fake_parts = [(1, {'boot_flag': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
-                      (2, {'bootable': True,
+                      (2, {'boot_flag': 'boot',
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
