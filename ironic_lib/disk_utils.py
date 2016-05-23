@@ -316,10 +316,19 @@ def destroy_disk_metadata(dev, node_uuid):
     # https://bugs.launchpad.net/ironic/+bug/1317647
     LOG.debug("Start destroy disk metadata for node %(node)s.",
               {'node': node_uuid})
-    utils.execute('wipefs', '--all', dev,
-                  run_as_root=True,
-                  check_exit_code=[0],
-                  use_standard_locale=True)
+    try:
+        utils.execute('wipefs', '--force', '--all', dev,
+                      run_as_root=True,
+                      use_standard_locale=True)
+    except processutils.ProcessExecutionError as e:
+        # NOTE(zhenguo): Check if --force option is supported for wipefs,
+        # if not, we should try without it.
+        if '--force' in str(e):
+            utils.execute('wipefs', '--all', dev,
+                          run_as_root=True,
+                          use_standard_locale=True)
+        else:
+            raise e
     LOG.info(_LI("Disk metadata on %(dev)s successfully destroyed for node "
                  "%(node)s"), {'dev': dev, 'node': node_uuid})
 
