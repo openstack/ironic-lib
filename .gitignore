@@ -32,3 +32,4 @@ AUTHORS
 ChangeLog
 *.sqlite
 *~
+.idea
