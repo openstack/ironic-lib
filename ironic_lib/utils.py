@@ -46,13 +46,21 @@ LOG = logging.getLogger(__name__)
 def execute(*cmd, **kwargs):
     """Convenience wrapper around oslo's execute() method.
 
-    :param cmd: Passed to processutils.execute.
-    :param use_standard_locale: True | False. Defaults to False. If set to
-                                True, execute command with standard locale
+    Executes and logs results from a system command. See docs for
+    oslo_concurrency.processutils.execute for usage.
+
+    :param \*cmd: positional arguments to pass to processutils.execute()
+    :param use_standard_locale: keyword-only argument. True | False.
+                                Defaults to False. If set to True,
+                                execute command with standard locale
                                 added to environment variables.
+    :param log_stdout: keyword-only argument. True | False. Defaults
+                       to True. If set to True, logs the output.
+    :param \*\*kwargs: keyword arguments to pass to processutils.execute()
     :returns: (stdout, stderr) from process execution
-    :raises: UnknownArgumentError
+    :raises: UnknownArgumentError on receiving unknown arguments
     :raises: ProcessExecutionError
+    :raises: OSError
     """
 
     use_standard_locale = kwargs.pop('use_standard_locale', False)
@@ -60,6 +68,8 @@ def execute(*cmd, **kwargs):
         env = kwargs.pop('env_variables', os.environ.copy())
         env['LC_ALL'] = 'C'
         kwargs['env_variables'] = env
+
+    log_stdout = kwargs.pop('log_stdout', True)
 
     # If root_helper config is not specified, no commands are run as root.
     run_as_root = kwargs.get('run_as_root', False)
@@ -72,7 +82,8 @@ def execute(*cmd, **kwargs):
     result = processutils.execute(*cmd, **kwargs)
     LOG.debug('Execution completed, command line is "%s"',
               ' '.join(map(str, cmd)))
-    LOG.debug('Command stdout is: "%s"' % result[0])
+    if log_stdout:
+        LOG.debug('Command stdout is: "%s"' % result[0])
     LOG.debug('Command stderr is: "%s"' % result[1])
     return result
 
