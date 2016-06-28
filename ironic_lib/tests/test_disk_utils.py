@@ -37,7 +37,7 @@ from ironic_lib import utils
 CONF = cfg.CONF
 
 
-@mock.patch.object(utils, 'execute')
+@mock.patch.object(utils, 'execute', autospec=True)
 class ListPartitionsTestCase(test_base.BaseTestCase):
 
     def test_correct(self, execute_mock):
@@ -60,7 +60,7 @@ BYT;
             'parted', '-s', '-m', '/dev/fake', 'unit', 'MiB', 'print',
             use_standard_locale=True, run_as_root=True)
 
-    @mock.patch.object(disk_utils.LOG, 'warning')
+    @mock.patch.object(disk_utils.LOG, 'warning', autospec=True)
     def test_incorrect(self, log_mock, execute_mock):
         output = """
 BYT;
@@ -164,8 +164,8 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              boot_mode="bios",
                                              disk_label=None)
 
-    @mock.patch.object(utils, 'unlink_without_raise')
-    @mock.patch.object(disk_utils, '_get_configdrive')
+    @mock.patch.object(utils, 'unlink_without_raise', autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive', autospec=True)
     def test_no_configdrive_partition(self, mock_configdrive, mock_unlink):
         mock_configdrive.return_value = (10, 'fake-path')
         swap_part = '/dev/fake-part1'
@@ -229,7 +229,7 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              disk_label='gpt')
 
 
-@mock.patch.object(utils, 'execute')
+@mock.patch.object(utils, 'execute', autospec=True)
 class MakePartitionsTestCase(test_base.BaseTestCase):
 
     def setUp(self):
@@ -378,7 +378,7 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
         self.assertEqual(expected_result, result)
 
 
-@mock.patch.object(utils, 'execute')
+@mock.patch.object(utils, 'execute', autospec=True)
 class DestroyMetaDataTestCase(test_base.BaseTestCase):
 
     def setUp(self):
@@ -408,7 +408,7 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
         mock_exec.assert_has_calls(expected_call)
 
 
-@mock.patch.object(utils, 'execute')
+@mock.patch.object(utils, 'execute', autospec=True)
 class GetDeviceBlockSizeTestCase(test_base.BaseTestCase):
 
     def setUp(self):
@@ -424,9 +424,9 @@ class GetDeviceBlockSizeTestCase(test_base.BaseTestCase):
         mock_exec.assert_has_calls(expected_call)
 
 
-@mock.patch.object(disk_utils, 'dd')
-@mock.patch.object(disk_utils, 'qemu_img_info')
-@mock.patch.object(disk_utils, 'convert_image')
+@mock.patch.object(disk_utils, 'dd', autospec=True)
+@mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
+@mock.patch.object(disk_utils, 'convert_image', autospec=True)
 class PopulateImageTestCase(test_base.BaseTestCase):
 
     def setUp(self):
@@ -530,11 +530,11 @@ class RealFilePartitioningTestCase(test_base.BaseTestCase):
         self.assertIn(sizes[2], (9, 10))
 
 
-@mock.patch.object(shutil, 'copyfileobj')
-@mock.patch.object(requests, 'get')
+@mock.patch.object(shutil, 'copyfileobj', autospec=True)
+@mock.patch.object(requests, 'get', autospec=True)
 class GetConfigdriveTestCase(test_base.BaseTestCase):
 
-    @mock.patch.object(gzip, 'GzipFile')
+    @mock.patch.object(gzip, 'GzipFile', autospec=True)
     def test_get_configdrive(self, mock_gzip, mock_requests, mock_copy):
         mock_requests.return_value = mock.MagicMock(content='Zm9vYmFy')
         tempdir = tempfile.mkdtemp()
@@ -547,7 +547,7 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
                                           fileobj=mock.ANY)
         mock_copy.assert_called_once_with(mock.ANY, mock.ANY)
 
-    @mock.patch.object(gzip, 'GzipFile')
+    @mock.patch.object(gzip, 'GzipFile', autospec=True)
     def test_get_configdrive_base64_string(self, mock_gzip, mock_requests,
                                            mock_copy):
         disk_utils._get_configdrive('Zm9vYmFy', 'fake-node-uuid')
@@ -563,7 +563,7 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
                           'http://1.2.3.4/cd', 'fake-node-uuid')
         self.assertFalse(mock_copy.called)
 
-    @mock.patch.object(base64, 'b64decode')
+    @mock.patch.object(base64, 'b64decode', autospec=True)
     def test_get_configdrive_base64_error(self, mock_b64, mock_requests,
                                           mock_copy):
         mock_b64.side_effect = TypeError
@@ -573,7 +573,7 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
         mock_b64.assert_called_once_with('malformed')
         self.assertFalse(mock_copy.called)
 
-    @mock.patch.object(gzip, 'GzipFile')
+    @mock.patch.object(gzip, 'GzipFile', autospec=True)
     def test_get_configdrive_gzip_error(self, mock_gzip, mock_requests,
                                         mock_copy):
         mock_requests.return_value = mock.MagicMock(content='Zm9vYmFy')
@@ -590,8 +590,8 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
 @mock.patch('time.sleep', lambda sec: None)
 class OtherFunctionTestCase(test_base.BaseTestCase):
 
-    @mock.patch.object(os, 'stat')
-    @mock.patch.object(stat, 'S_ISBLK')
+    @mock.patch.object(os, 'stat', autospec=True)
+    @mock.patch.object(stat, 'S_ISBLK', autospec=True)
     def test_is_block_device_works(self, mock_is_blk, mock_os):
         device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
         mock_is_blk.return_value = True
@@ -599,7 +599,7 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
         self.assertTrue(disk_utils.is_block_device(device))
         mock_is_blk.assert_called_once_with(mock_os().st_mode)
 
-    @mock.patch.object(os, 'stat')
+    @mock.patch.object(os, 'stat', autospec=True)
     def test_is_block_device_raises(self, mock_os):
         device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
         mock_os.side_effect = OSError
@@ -634,8 +634,8 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
                                              'out_format', 'source', 'dest',
                                              run_as_root=False)
 
-    @mock.patch.object(os.path, 'getsize')
-    @mock.patch.object(disk_utils, 'qemu_img_info')
+    @mock.patch.object(os.path, 'getsize', autospec=True)
+    @mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
     def test_get_image_mb(self, mock_qinfo, mock_getsize):
         mb = 1024 * 1024
 
