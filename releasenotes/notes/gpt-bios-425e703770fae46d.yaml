@@ -1,4 +1,0 @@
----
-fixes:
-  - Fixes a problem where nodes being configured in BIOS mode to boot
-    from the local disk with a GPT partition table would fail at boot time.
