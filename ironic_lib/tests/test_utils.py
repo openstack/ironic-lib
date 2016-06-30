@@ -188,6 +188,32 @@ grep foo
                 'foo', run_as_root=True,
                 root_helper=CONF.ironic_lib.root_helper)
 
+    @mock.patch.object(utils, 'LOG', autospec=True)
+    def _test_execute_with_log_stdout(self, log_mock, log_stdout=None):
+        with mock.patch.object(processutils, 'execute') as execute_mock:
+            execute_mock.return_value = ('stdout', 'stderr')
+            if log_stdout is not None:
+                utils.execute('foo', log_stdout=log_stdout)
+            else:
+                utils.execute('foo')
+            execute_mock.assert_called_once_with('foo')
+            name, args, kwargs = log_mock.debug.mock_calls[1]
+            if log_stdout is False:
+                self.assertEqual(2, log_mock.debug.call_count)
+                self.assertNotIn('stdout', args[0])
+            else:
+                self.assertEqual(3, log_mock.debug.call_count)
+                self.assertIn('stdout', args[0])
+
+    def test_execute_with_log_stdout_default(self):
+        self._test_execute_with_log_stdout()
+
+    def test_execute_with_log_stdout_true(self):
+        self._test_execute_with_log_stdout(log_stdout=True)
+
+    def test_execute_with_log_stdout_false(self):
+        self._test_execute_with_log_stdout(log_stdout=False)
+
 
 class MkfsTestCase(test_base.BaseTestCase):
 
