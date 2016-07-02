@@ -140,15 +140,15 @@ grep foo
             os.unlink(tmpfilename)
             os.unlink(tmpfilename2)
 
-    @mock.patch.object(processutils, 'execute')
-    @mock.patch.object(os.environ, 'copy', return_value={})
+    @mock.patch.object(processutils, 'execute', autospec=True)
+    @mock.patch.object(os.environ, 'copy', return_value={}, autospec=True)
     def test_execute_use_standard_locale_no_env_variables(self, env_mock,
                                                           execute_mock):
         utils.execute('foo', use_standard_locale=True)
         execute_mock.assert_called_once_with('foo',
                                              env_variables={'LC_ALL': 'C'})
 
-    @mock.patch.object(processutils, 'execute')
+    @mock.patch.object(processutils, 'execute', autospec=True)
     def test_execute_use_standard_locale_with_env_variables(self,
                                                             execute_mock):
         utils.execute('foo', use_standard_locale=True,
@@ -157,7 +157,7 @@ grep foo
                                              env_variables={'LC_ALL': 'C',
                                                             'foo': 'bar'})
 
-    @mock.patch.object(processutils, 'execute')
+    @mock.patch.object(processutils, 'execute', autospec=True)
     def test_execute_not_use_standard_locale(self, execute_mock):
         utils.execute('foo', use_standard_locale=False,
                       env_variables={'foo': 'bar'})
@@ -166,23 +166,27 @@ grep foo
 
     def test_execute_without_root_helper(self):
         CONF.set_override('root_helper', None, group='ironic_lib')
-        with mock.patch.object(processutils, 'execute') as execute_mock:
+        with mock.patch.object(
+                processutils, 'execute', autospec=True) as execute_mock:
             utils.execute('foo', run_as_root=False)
             execute_mock.assert_called_once_with('foo', run_as_root=False)
 
     def test_execute_without_root_helper_run_as_root(self):
         CONF.set_override('root_helper', None, group='ironic_lib')
-        with mock.patch.object(processutils, 'execute') as execute_mock:
+        with mock.patch.object(
+                processutils, 'execute', autospec=True) as execute_mock:
             utils.execute('foo', run_as_root=True)
             execute_mock.assert_called_once_with('foo', run_as_root=False)
 
     def test_execute_with_root_helper(self):
-        with mock.patch.object(processutils, 'execute') as execute_mock:
+        with mock.patch.object(
+                processutils, 'execute', autospec=True) as execute_mock:
             utils.execute('foo', run_as_root=False)
             execute_mock.assert_called_once_with('foo', run_as_root=False)
 
     def test_execute_with_root_helper_run_as_root(self):
-        with mock.patch.object(processutils, 'execute') as execute_mock:
+        with mock.patch.object(
+                processutils, 'execute', autospec=True) as execute_mock:
             utils.execute('foo', run_as_root=True)
             execute_mock.assert_called_once_with(
                 'foo', run_as_root=True,
