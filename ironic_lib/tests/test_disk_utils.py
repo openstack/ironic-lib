@@ -387,9 +387,8 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
         self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
 
     def test_destroy_disk_metadata(self, mock_exec):
-        expected_calls = [mock.call('wipefs', '--all', 'fake-dev',
+        expected_calls = [mock.call('wipefs', '--force', '--all', 'fake-dev',
                                     run_as_root=True,
-                                    check_exit_code=[0],
                                     use_standard_locale=True)]
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_calls)
@@ -397,14 +396,27 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
     def test_destroy_disk_metadata_wipefs_fail(self, mock_exec):
         mock_exec.side_effect = processutils.ProcessExecutionError
 
-        expected_call = [mock.call('wipefs', '--all', 'fake-dev',
+        expected_call = [mock.call('wipefs', '--force', '--all', 'fake-dev',
                                    run_as_root=True,
-                                   check_exit_code=[0],
                                    use_standard_locale=True)]
         self.assertRaises(processutils.ProcessExecutionError,
                           disk_utils.destroy_disk_metadata,
                           self.dev,
                           self.node_uuid)
+        mock_exec.assert_has_calls(expected_call)
+
+    def test_destroy_disk_metadata_wipefs_not_support_force(self, mock_exec):
+        mock_exec.side_effect = iter(
+            [processutils.ProcessExecutionError(description='--force'),
+             (None, None)])
+
+        expected_call = [mock.call('wipefs', '--force', '--all', 'fake-dev',
+                                   run_as_root=True,
+                                   use_standard_locale=True),
+                         mock.call('wipefs', '--all', 'fake-dev',
+                                   run_as_root=True,
+                                   use_standard_locale=True)]
+        disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_call)
 
 
