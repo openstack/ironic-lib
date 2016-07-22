@@ -279,3 +279,52 @@ class IsHttpUrlTestCase(test_base.BaseTestCase):
         self.assertTrue(utils.is_http_url('HTTPS://127.3.2.1'))
         self.assertFalse(utils.is_http_url('Zm9vYmFy'))
         self.assertFalse(utils.is_http_url('11111111'))
+
+
+class ParseRootDeviceTestCase(test_base.BaseTestCase):
+
+    def setUp(self):
+        super(ParseRootDeviceTestCase, self).setUp()
+        self.root_device = {
+            'wwn': '123456', 'model': 'foo-model', 'size': 12345,
+            'serial': 'foo-serial', 'vendor': 'foo-vendor', 'name': '/dev/sda',
+            'wwn_with_extension': '123456111', 'wwn_vendor_extension': '111',
+            'rotational': True}
+
+    def test_parse_root_device_hints(self):
+        result = utils.parse_root_device_hints(self.root_device)
+        self.assertEqual(self.root_device, result)
+
+    def test_parse_root_device_hints_no_hints(self):
+        result = utils.parse_root_device_hints({})
+        self.assertIsNone(result)
+
+    def test_parse_root_device_hints_convert_size(self):
+        result = utils.parse_root_device_hints({'size': '12345'})
+        self.assertEqual({'size': 12345}, result)
+
+    def test_parse_root_device_hints_invalid_size(self):
+        for value in ('not-int', -123, 0):
+            self.assertRaises(ValueError, utils.parse_root_device_hints,
+                              {'size': value})
+
+    def _parse_root_device_hints_convert_rotational(self, values,
+                                                    expected_value):
+        for value in values:
+            result = utils.parse_root_device_hints({'rotational': value})
+            self.assertEqual({'rotational': expected_value}, result)
+
+    def test_parse_root_device_hints_convert_rotational(self):
+        self._parse_root_device_hints_convert_rotational(
+            (True, 'true', 'on', 'y', 'yes'), True)
+
+        self._parse_root_device_hints_convert_rotational(
+            (False, 'false', 'off', 'n', 'no'), False)
+
+    def test_parse_root_device_hints_invalid_rotational(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'rotational': 'not-bool'})
+
+    def test_parse_root_device_hints_non_existent_hint(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'non-existent': 'foo'})
