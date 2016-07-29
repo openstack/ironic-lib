@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
 import errno
 import os
 import os.path
@@ -283,30 +284,67 @@ class IsHttpUrlTestCase(test_base.BaseTestCase):
 
 class ParseRootDeviceTestCase(test_base.BaseTestCase):
 
-    def setUp(self):
-        super(ParseRootDeviceTestCase, self).setUp()
-        self.root_device = {
-            'wwn': '123456', 'model': 'foo-model', 'size': 12345,
-            'serial': 'foo-serial', 'vendor': 'foo-vendor', 'name': '/dev/sda',
-            'wwn_with_extension': '123456111', 'wwn_vendor_extension': '111',
-            'rotational': True}
+    def test_parse_root_device_hints_without_operators(self):
+        root_device = {
+            'wwn': '123456', 'model': 'FOO model', 'size': 12345,
+            'serial': 'foo-serial', 'vendor': 'foo VENDOR with space',
+            'name': '/dev/sda', 'wwn_with_extension': '123456111',
+            'wwn_vendor_extension': '111', 'rotational': True}
+        result = utils.parse_root_device_hints(root_device)
+        expected = {
+            'wwn': 's== 123456', 'model': 's== foo%20model',
+            'size': '== 12345', 'serial': 's== foo-serial',
+            'vendor': 's== foo%20vendor%20with%20space',
+            'name': 's== /dev/sda', 'wwn_with_extension': 's== 123456111',
+            'wwn_vendor_extension': 's== 111', 'rotational': True}
+        self.assertEqual(expected, result)
 
-    def test_parse_root_device_hints(self):
-        result = utils.parse_root_device_hints(self.root_device)
-        self.assertEqual(self.root_device, result)
+    def test_parse_root_device_hints_with_operators(self):
+        root_device = {
+            'wwn': 's== 123456', 'model': 's== foo MODEL', 'size': '>= 12345',
+            'serial': 's!= foo-serial', 'vendor': 's== foo VENDOR with space',
+            'name': '<or> /dev/sda <or> /dev/sdb',
+            'wwn_with_extension': 's!= 123456111',
+            'wwn_vendor_extension': 's== 111', 'rotational': True}
+
+        # Validate strings being normalized
+        expected = copy.deepcopy(root_device)
+        expected['model'] = 's== foo%20model'
+        expected['vendor'] = 's== foo%20vendor%20with%20space'
+
+        result = utils.parse_root_device_hints(root_device)
+        # The hints already contain the operators, make sure we keep it
+        self.assertEqual(expected, result)
 
     def test_parse_root_device_hints_no_hints(self):
         result = utils.parse_root_device_hints({})
         self.assertIsNone(result)
 
     def test_parse_root_device_hints_convert_size(self):
-        result = utils.parse_root_device_hints({'size': '12345'})
-        self.assertEqual({'size': 12345}, result)
+        for size in (12345, '12345'):
+            result = utils.parse_root_device_hints({'size': size})
+            self.assertEqual({'size': '== 12345'}, result)
 
     def test_parse_root_device_hints_invalid_size(self):
         for value in ('not-int', -123, 0):
             self.assertRaises(ValueError, utils.parse_root_device_hints,
                               {'size': value})
+
+    def test_parse_root_device_hints_int_or(self):
+        expr = '<or> 123 <or> 456 <or> 789'
+        result = utils.parse_root_device_hints({'size': expr})
+        self.assertEqual({'size': expr}, result)
+
+    def test_parse_root_device_hints_int_or_invalid(self):
+        expr = '<or> 123 <or> non-int <or> 789'
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'size': expr})
+
+    def test_parse_root_device_hints_string_or_space(self):
+        expr = '<or> foo <or> foo bar <or> bar'
+        expected = '<or> foo <or> foo%20bar <or> bar'
+        result = utils.parse_root_device_hints({'model': expr})
+        self.assertEqual({'model': expected}, result)
 
     def _parse_root_device_hints_convert_rotational(self, values,
                                                     expected_value):
@@ -325,6 +363,115 @@ class ParseRootDeviceTestCase(test_base.BaseTestCase):
         self.assertRaises(ValueError, utils.parse_root_device_hints,
                           {'rotational': 'not-bool'})
 
+    def test_parse_root_device_hints_invalid_wwn(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'wwn': 123})
+
+    def test_parse_root_device_hints_invalid_wwn_with_extension(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'wwn_with_extension': 123})
+
+    def test_parse_root_device_hints_invalid_wwn_vendor_extension(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'wwn_vendor_extension': 123})
+
+    def test_parse_root_device_hints_invalid_model(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'model': 123})
+
+    def test_parse_root_device_hints_invalid_serial(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'serial': 123})
+
+    def test_parse_root_device_hints_invalid_vendor(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'vendor': 123})
+
+    def test_parse_root_device_hints_invalid_name(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'name': 123})
+
     def test_parse_root_device_hints_non_existent_hint(self):
         self.assertRaises(ValueError, utils.parse_root_device_hints,
                           {'non-existent': 'foo'})
+
+    def test_extract_hint_operator_and_values_single_value(self):
+        expected = {'op': '>=', 'values': ['123']}
+        self.assertEqual(
+            expected, utils._extract_hint_operator_and_values(
+                '>= 123', 'size'))
+
+    def test_extract_hint_operator_and_values_multiple_values(self):
+        expected = {'op': '<or>', 'values': ['123', '456', '789']}
+        expr = '<or> 123 <or> 456 <or> 789'
+        self.assertEqual(
+            expected, utils._extract_hint_operator_and_values(expr, 'size'))
+
+    def test_extract_hint_operator_and_values_multiple_values_space(self):
+        expected = {'op': '<or>', 'values': ['foo', 'foo bar', 'bar']}
+        expr = '<or> foo <or> foo bar <or> bar'
+        self.assertEqual(
+            expected, utils._extract_hint_operator_and_values(expr, 'model'))
+
+    def test_extract_hint_operator_and_values_no_operator(self):
+        expected = {'op': '', 'values': ['123']}
+        self.assertEqual(
+            expected, utils._extract_hint_operator_and_values('123', 'size'))
+
+    def test_extract_hint_operator_and_values_empty_value(self):
+        self.assertRaises(
+            ValueError, utils._extract_hint_operator_and_values, '', 'size')
+
+    def test_extract_hint_operator_and_values_integer(self):
+        expected = {'op': '', 'values': ['123']}
+        self.assertEqual(
+            expected, utils._extract_hint_operator_and_values(123, 'size'))
+
+    def test__append_operator_to_hints(self):
+        root_device = {'serial': 'foo', 'size': 12345,
+                       'model': 'foo model', 'rotational': True}
+        expected = {'serial': 's== foo', 'size': '== 12345',
+                    'model': 's== foo model', 'rotational': True}
+
+        result = utils._append_operator_to_hints(root_device)
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_or(self):
+        expr = '<or> foo <or> foo bar <or> bar'
+        expected = '<or> foo <or> foo%20bar <or> bar'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_in(self):
+        expr = '<in> foo <in> foo bar <in> bar'
+        expected = '<in> foo <in> foo%20bar <in> bar'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_op_space(self):
+        expr = 's== test string with space'
+        expected = 's== test%20string%20with%20space'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_op_no_space(self):
+        expr = 's!= SpongeBob'
+        expected = 's!= spongebob'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_no_op_space(self):
+        expr = 'no operators'
+        expected = 'no%20operators'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_no_op_no_space(self):
+        expr = 'NoSpace'
+        expected = 'nospace'
+        result = utils._normalize_hint_expression(expr, 'model')
+        self.assertEqual(expected, result)
+
+    def test_normalize_hint_expression_empty_value(self):
+        self.assertRaises(
+            ValueError, utils._normalize_hint_expression, '', 'size')

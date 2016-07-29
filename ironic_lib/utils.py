@@ -22,11 +22,15 @@ import copy
 import errno
 import logging
 import os
+import re
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_utils import excutils
+from oslo_utils import specs_matcher
 from oslo_utils import strutils
+import six
+from six.moves.urllib import parse
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE
@@ -45,10 +49,15 @@ CONF.register_opts(utils_opts, group='ironic_lib')
 
 LOG = logging.getLogger(__name__)
 
+# A dictionary in the form {hint name: hint type}
+VALID_ROOT_DEVICE_HINTS = {
+    'size': int, 'model': str, 'wwn': str, 'serial': str, 'vendor': str,
+    'wwn_with_extension': str, 'wwn_vendor_extension': str, 'name': str,
+    'rotational': bool,
+}
 
-VALID_ROOT_DEVICE_HINTS = set(('size', 'model', 'wwn', 'serial', 'vendor',
-                               'wwn_with_extension', 'wwn_vendor_extension',
-                               'name', 'rotational'))
+
+ROOT_DEVICE_HINTS_GRAMMAR = specs_matcher.make_grammar()
 
 
 def execute(*cmd, **kwargs):
@@ -169,6 +178,87 @@ def list_opts():
     return [('ironic_lib', utils_opts)]
 
 
+def _extract_hint_operator_and_values(hint_expression, hint_name):
+    """Extract the operator and value(s) of a root device hint expression.
+
+    A root device hint expression could contain one or more values
+    depending on the operator. This method extracts the operator and
+    value(s) and returns a dictionary containing both.
+
+    :param hint_expression: The hint expression string containing value(s)
+                            and operator (optionally).
+    :param hint_name: The name of the hint. Used for logging.
+    :raises: ValueError if the hint_expression is empty.
+    :returns: A dictionary containing:
+
+        :op: The operator. An empty string in case of None.
+        :values: A list of values stripped and converted to lowercase.
+    """
+    expression = six.text_type(hint_expression).strip().lower()
+    if not expression:
+        raise ValueError(
+            _('Root device hint "%s" expression is empty') % hint_name)
+
+    # parseString() returns a list of tokens which the operator (if
+    # present) is always the first element.
+    ast = ROOT_DEVICE_HINTS_GRAMMAR.parseString(expression)
+    if len(ast) <= 1:
+        # hint_expression had no operator
+        return {'op': '', 'values': [expression]}
+
+    op = ast[0]
+    return {'values': [v.strip() for v in re.split(op, expression) if v],
+            'op': op}
+
+
+def _normalize_hint_expression(hint_expression, hint_name):
+    """Normalize a string type hint expression.
+
+    A string-type hint expression contains one or more operators and
+    one or more values: [<op>] <value> [<op> <value>]*. This normalizes
+    the values by url-encoding white spaces and special characters. The
+    operators are not normalized. For example: the hint value of "<or>
+    foo bar <or> bar" will become "<or> foo%20bar <or> bar".
+
+    :param hint_expression: The hint expression string containing value(s)
+                            and operator (optionally).
+    :param hint_name: The name of the hint. Used for logging.
+    :raises: ValueError if the hint_expression is empty.
+    :returns: A normalized string.
+    """
+    hdict = _extract_hint_operator_and_values(hint_expression, hint_name)
+    result = hdict['op'].join([' %s ' % parse.quote(t)
+                               for t in hdict['values']])
+    return (hdict['op'] + result).strip()
+
+
+def _append_operator_to_hints(root_device):
+    """Add an equal (s== or ==) operator to the hints.
+
+    For backwards compatibility, for root device hints where no operator
+    means equal, this method adds the equal operator to the hint. This is
+    needed when using oslo.utils.specs_matcher methods.
+
+    :param root_device: The root device hints dictionary.
+    """
+    for name, expression in root_device.items():
+        # NOTE(lucasagomes): The specs_matcher from oslo.utils does not
+        # support boolean, so we don't need to append any operator
+        # for it.
+        if VALID_ROOT_DEVICE_HINTS[name] is bool:
+            continue
+
+        expression = six.text_type(expression)
+        ast = ROOT_DEVICE_HINTS_GRAMMAR.parseString(expression)
+        if len(ast) > 1:
+            continue
+
+        op = 's== %s' if VALID_ROOT_DEVICE_HINTS[name] is str else '== %s'
+        root_device[name] = op % expression
+
+    return root_device
+
+
 def parse_root_device_hints(root_device):
     """Parse the root_device property of a node.
 
@@ -188,7 +278,7 @@ def parse_root_device_hints(root_device):
 
     root_device = copy.deepcopy(root_device)
 
-    invalid_hints = set(root_device) - VALID_ROOT_DEVICE_HINTS
+    invalid_hints = set(root_device) - set(VALID_ROOT_DEVICE_HINTS)
     if invalid_hints:
         raise ValueError(
             _('The hints "%(invalid_hints)s" are invalid. '
@@ -196,28 +286,41 @@ def parse_root_device_hints(root_device):
             {'invalid_hints': ', '.join(invalid_hints),
              'valid_hints': ', '.join(VALID_ROOT_DEVICE_HINTS)})
 
-    if 'size' in root_device:
-        try:
-            size = int(root_device['size'])
-        except ValueError:
-            raise ValueError(
-                _('Root device hint "size" is not an integer value. '
-                  'Current value: %s') % root_device['size'])
+    for name, expression in root_device.items():
+        hint_type = VALID_ROOT_DEVICE_HINTS[name]
+        if hint_type is str:
+            if not isinstance(expression, six.string_types):
+                raise ValueError(
+                    _('Root device hint "%(name)s" is not a string value. '
+                      'Hint expression: %(expression)s') %
+                    {'name': name, 'expression': expression})
+            root_device[name] = _normalize_hint_expression(expression, name)
 
-        if size <= 0:
-            raise ValueError(
-                _('Root device hint "size" should be a positive integer. '
-                  'Current value: %d') % size)
+        elif hint_type is int:
+            for v in _extract_hint_operator_and_values(expression,
+                                                       name)['values']:
+                try:
+                    integer = int(v)
+                except ValueError:
+                    raise ValueError(
+                        _('Root device hint "%(name)s" is not an integer '
+                          'value. Current value: %(expression)s') %
+                        {'name': name, 'expression': expression})
 
-        root_device['size'] = size
+                if integer <= 0:
+                    raise ValueError(
+                        _('Root device hint "%(name)s" should be a positive '
+                          'integer. Current value: %(expression)s') %
+                        {'name': name, 'expression': expression})
 
-    if 'rotational' in root_device:
-        try:
-            root_device['rotational'] = strutils.bool_from_string(
-                root_device['rotational'], strict=True)
-        except ValueError:
-            raise ValueError(
-                _('Root device hint "rotational" is not a Boolean value. '
-                  'Current value: %s') % root_device['rotational'])
+        elif hint_type is bool:
+            try:
+                root_device[name] = strutils.bool_from_string(
+                    expression, strict=True)
+            except ValueError:
+                raise ValueError(
+                    _('Root device hint "%(name)s" is not a Boolean value. '
+                      'Current value: %(expression)s') %
+                    {'name': name, 'expression': expression})
 
-    return root_device
+    return _append_operator_to_hints(root_device)
