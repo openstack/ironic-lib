@@ -26,18 +26,20 @@ from ironic_lib.common.i18n import _
 class Timer(object):
     """A timer decorator and context manager.
 
-    It is bound to this MetricLogger.  For example:
+    This metric type times the decorated method or code running inside the
+    context manager, and emits the time as the metric value. It is bound to
+    this MetricLogger.  For example::
 
-    from ironic_lib import metrics
+      from ironic_lib import metrics_utils
 
-    METRICS = metrics.get_metrics_logger()
+      METRICS = metrics_utils.get_metrics_logger()
 
-    @METRICS.timer('foo')
-    def foo(bar, baz):
-        print bar, baz
+      @METRICS.timer('foo')
+      def foo(bar, baz):
+          print bar, baz
 
-    with METRICS.timer('foo'):
-        do_something()
+      with METRICS.timer('foo'):
+          do_something()
     """
     def __init__(self, metrics, name):
         """Init the decorator / context manager.
@@ -78,18 +80,20 @@ class Timer(object):
 class Counter(object):
     """A counter decorator and context manager.
 
-    It is bound to this MetricLogger.  For example:
+    This metric type increments a counter every time the decorated method or
+    context manager is executed. It is bound to this MetricLogger. For
+    example::
 
-    from ironic_lib import metrics
+      from ironic_lib import metrics_utils
 
-    METRICS = metrics.get_metrics_logger()
+      METRICS = metrics_utils.get_metrics_logger()
 
-    @METRICS.counter('foo')
-    def foo(bar, baz):
-        print bar, baz
+      @METRICS.counter('foo')
+      def foo(bar, baz):
+          print bar, baz
 
-    with METRICS.counter('foo'):
-        do_something()
+      with METRICS.counter('foo'):
+          do_something()
     """
     def __init__(self, metrics, name, sample_rate):
         """Init the decorator / context manager.
@@ -135,18 +139,17 @@ class Counter(object):
 class Gauge(object):
     """A gauge decorator.
 
-    It is bound to this MetricLogger.  For example:
+    This metric type returns the value of the decorated method as a metric
+    every time the method is executed. It is bound to this MetricLogger. For
+    example::
 
-    from ironic_lib import metrics
+      from ironic_lib import metrics_utils
 
-    METRICS = metrics.get_metrics_logger()
+      METRICS = metrics_utils.get_metrics_logger()
 
-    @METRICS.gauge('foo')
-    def foo(bar, baz):
-        print bar, baz
-
-    with METRICS.gauge('foo'):
-        do_something()
+      @METRICS.gauge('foo')
+      def add_foo(bar, baz):
+          return (bar + baz)
     """
     def __init__(self, metrics, name):
         """Init the decorator / context manager.
@@ -184,15 +187,15 @@ class MetricLogger(object):
     The data can be a gauge, a counter, or a timer.
 
     The data sent to the backend is composed of:
-    - a full metric name
-    - a numeric value
+      - a full metric name
+      - a numeric value
 
     The format of the full metric name is:
         _prefix<delim>name
     where:
-        _prefix: [global_prefix<delim>][uuid<delim>][host_name<delim>]prefix
-        name: the name of this metric
-        <delim>: the delimiter. Default is '.'
+        - _prefix: [global_prefix<delim>][uuid<delim>][host_name<delim>]prefix
+        - name: the name of this metric
+        - <delim>: the delimiter. Default is '.'
     """
 
     def __init__(self, prefix='', delimiter='.'):
@@ -211,9 +214,11 @@ class MetricLogger(object):
         The format of the full metric name is:
            _prefix<delim>name
         where:
-           _prefix: [global_prefix<delim>][uuid<delim>][host_name<delim>]prefix
-           name: the name of this metric
-           <delim>: the delimiter. Default is '.'
+           - _prefix: [global_prefix<delim>][uuid<delim>][host_name<delim>]
+             prefix
+           - name: the name of this metric
+           - <delim>: the delimiter. Default is '.'
+
 
         :param name: The metric name.
         :return: The full metric name, with logger prefix, as a string.
@@ -240,7 +245,7 @@ class MetricLogger(object):
         The backend will increment the counter 'name' by the value 'value'.
 
         Optionally, specify sample_rate in the interval [0.0, 1.0] to
-        sample data probabilistically where:
+        sample data probabilistically where::
 
             P(send metric data) = sample_rate
 
