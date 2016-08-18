@@ -115,7 +115,7 @@ def get_disk_identifier(dev):
     http://www.syslinux.org/wiki/index.php/Comboot/chain.c32#mbr:
 
     :param dev: Path for the already populated disk device.
-    :returns The Disk Identifier.
+    :returns: The Disk Identifier.
     """
     disk_identifier = utils.execute('hexdump', '-s', '440', '-n', '4',
                                     '-e', '''\"0x%08x\"''',
@@ -440,9 +440,9 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
     :returns: a dictionary containing the following keys:
         'root uuid': UUID of root partition
         'efi system partition uuid': UUID of the uefi system partition
-                                     (if boot mode is uefi).
+        (if boot mode is uefi).
         NOTE: If key exists but value is None, it means partition doesn't
-              exist.
+        exist.
     """
     # the only way for preserve_ephemeral to be set to true is if we are
     # rebuilding an instance with --preserve_ephemeral.
