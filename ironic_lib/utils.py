@@ -29,6 +29,7 @@ from oslo_config import cfg
 from oslo_utils import excutils
 from oslo_utils import specs_matcher
 from oslo_utils import strutils
+from oslo_utils import units
 import six
 from six.moves.urllib import parse
 
@@ -324,3 +325,83 @@ def parse_root_device_hints(root_device):
                     {'name': name, 'expression': expression})
 
     return _append_operator_to_hints(root_device)
+
+
+def match_root_device_hints(devices, root_device_hints):
+    """Try to find a device that matches the root device hints.
+
+    Try to find a device that matches the root device hints. In order
+    for a device to be matched it needs to satisfy all the given hints.
+
+    :param devices: A list of dictionaries representing the devices
+                    containing one or more of the following keys:
+
+        :name: (String) The device name, e.g /dev/sda
+        :size: (Integer) Size of the device in *bytes*
+        :model: (String) Device model
+        :vendor: (String) Device vendor name
+        :serial: (String) Device serial number
+        :wwn: (String) Unique storage identifier
+        :wwn_with_extension: (String): Unique storage identifier with
+                             the vendor extension appended
+        :wwn_vendor_extension: (String): United vendor storage identifier
+        :rotational: (Boolean) Whether it's a rotational device or
+                     not. Useful to distinguish HDDs (rotational) and SSDs
+                     (not rotational).
+
+    :param root_device_hints: A dictionary with the root device hints.
+    :raises: ValueError, if some information is invalid.
+    :returns: The first device to match all the hints or None.
+    """
+    LOG.debug('Trying to find a device from "%(devs)s" that matches the '
+              'root device hints "%(hints)s"', {'devs': devices,
+                                                'hints': root_device_hints})
+    parsed_hints = parse_root_device_hints(root_device_hints)
+    for dev in devices:
+        for hint in parsed_hints:
+            hint_type = VALID_ROOT_DEVICE_HINTS[hint]
+            device_value = dev.get(hint)
+            hint_value = parsed_hints[hint]
+
+            if hint_type is str:
+                try:
+                    device_value = _normalize_hint_expression(device_value,
+                                                              hint)
+                except ValueError:
+                    LOG.warning(
+                        _LW('The attribute "%(attr)s" of the device "%(dev)s" '
+                            'has an empty value. Skipping device.'),
+                        {'attr': hint, 'dev': dev})
+                    break
+
+            # NOTE(lucasagomes): Boolean hints are not supported by
+            # specs_matcher.match(), so we need to do the comparison
+            # ourselves
+            if hint_type is bool:
+                try:
+                    device_value = strutils.bool_from_string(device_value,
+                                                             strict=True)
+                except ValueError:
+                    LOG.warning(_LW('The attribute "%(attr)s" (with value '
+                                    '"%(value)s") of device "%(dev)s" is not '
+                                    'a valid Boolean. Skipping device.'),
+                                {'attr': hint, 'value': device_value,
+                                 'dev': dev})
+                    break
+                if device_value == hint_value:
+                    continue
+                break
+
+            if hint == 'size':
+                # Since we don't support units yet we expect the size
+                # in GiB for now
+                device_value = device_value / units.Gi
+
+            if not specs_matcher.match(device_value, hint_value):
+                break
+        else:
+            LOG.debug('Device found! The device "%s" matches the root '
+                      'device hints' % dev)
+            return dev
+
+    LOG.debug('No device found that matches the root device hints')

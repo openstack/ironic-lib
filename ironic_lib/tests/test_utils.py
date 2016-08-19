@@ -475,3 +475,69 @@ class ParseRootDeviceTestCase(test_base.BaseTestCase):
     def test_normalize_hint_expression_empty_value(self):
         self.assertRaises(
             ValueError, utils._normalize_hint_expression, '', 'size')
+
+
+class MatchRootDeviceTestCase(test_base.BaseTestCase):
+
+    def setUp(self):
+        super(MatchRootDeviceTestCase, self).setUp()
+        self.devices = [
+            {'name': '/dev/sda', 'size': 64424509440, 'model': 'ok model',
+             'serial': 'fakeserial'},
+            {'name': '/dev/sdb', 'size': 128849018880, 'model': 'big model',
+             'serial': 'veryfakeserial', 'rotational': 'yes'},
+            {'name': '/dev/sdc', 'size': 10737418240, 'model': 'small model',
+             'serial': 'veryveryfakeserial', 'rotational': False},
+        ]
+
+    def test_match_root_device_hints_one_hint(self):
+        root_device_hints = {'size': '>= 70'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdb', dev['name'])
+
+    def test_match_root_device_hints_rotational(self):
+        root_device_hints = {'rotational': False}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdc', dev['name'])
+
+    def test_match_root_device_hints_rotational_convert_devices_bool(self):
+        root_device_hints = {'size': '>=100', 'rotational': True}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdb', dev['name'])
+
+    def test_match_root_device_hints_multiple_hints(self):
+        root_device_hints = {'size': '>= 50', 'model': 's==big model',
+                             'serial': 's==veryfakeserial'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdb', dev['name'])
+
+    def test_match_root_device_hints_multiple_hints2(self):
+        root_device_hints = {
+            'size': '<= 20',
+            'model': '<or> model 5 <or> foomodel <or> small model <or>',
+            'serial': 's== veryveryfakeserial'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdc', dev['name'])
+
+    def test_match_root_device_hints_multiple_hints3(self):
+        root_device_hints = {'rotational': False, 'model': '<in> small'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdc', dev['name'])
+
+    def test_match_root_device_hints_no_operators(self):
+        root_device_hints = {'size': '120', 'model': 'big model',
+                             'serial': 'veryfakeserial'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertEqual('/dev/sdb', dev['name'])
+
+    def test_match_root_device_hints_no_device_found(self):
+        root_device_hints = {'size': '>=50', 'model': 's==foo'}
+        dev = utils.match_root_device_hints(self.devices, root_device_hints)
+        self.assertIsNone(dev)
+
+    @mock.patch.object(utils.LOG, 'warning', autospec=True)
+    def test_match_root_device_hints_empty_device_attribute(self, mock_warn):
+        empty_dev = [{'name': '/dev/sda', 'model': ' '}]
+        dev = utils.match_root_device_hints(empty_dev, {'model': 'foo'})
+        self.assertIsNone(dev)
+        self.assertTrue(mock_warn.called)
