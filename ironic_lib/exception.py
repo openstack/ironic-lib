@@ -26,6 +26,7 @@ import logging
 import six
 
 from oslo_config import cfg
+from oslo_utils import excutils
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE
@@ -70,18 +71,18 @@ class IronicException(Exception):
             try:
                 message = self.message % kwargs
 
-            except Exception as e:
-                # kwargs doesn't match a variable in the message
-                # log the issue and the kwargs
-                LOG.exception(_LE('Exception in string format operation'))
-                for name, value in kwargs.items():
-                    LOG.error("%s: %s" % (name, value))
-
-                if CONF.ironic_lib.fatal_exception_format_errors:
-                    raise e
-                else:
-                    # at least get the core message out if something happened
-                    message = self.message
+            except Exception:
+                with excutils.save_and_reraise_exception() as ctxt:
+                    # kwargs doesn't match a variable in the message
+                    # log the issue and the kwargs
+                    prs = ', '.join('%s=%s' % pair for pair in kwargs.items())
+                    LOG.exception(_LE('Exception in string format operation '
+                                      '(arguments %s)'), prs)
+                    if not CONF.ironic_lib.fatal_exception_format_errors:
+                        # at least get the core message out if something
+                        # happened
+                        message = self.message
+                        ctxt.reraise = False
 
         super(IronicException, self).__init__(message)
 
