@@ -703,7 +703,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         result = disk_utils._get_labelled_partition(self.dev,
                                                     self.config_part_label,
                                                     self.node_uuid)
-        self.assertEqual(None, result)
+        self.assertIsNone(result)
         execute_calls = [
             mock.call('partprobe', self.dev, run_as_root=True),
             mock.call('blkid', '-o', 'device', self.dev, '-t',
