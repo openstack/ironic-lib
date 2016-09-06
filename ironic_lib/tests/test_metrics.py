@@ -16,12 +16,9 @@
 import types
 
 import mock
-from oslo_config import cfg
 from oslotest import base as test_base
 
 from ironic_lib import metrics as metricslib
-
-CONF = cfg.CONF
 
 
 class MockedMetricLogger(metricslib.MetricLogger):
