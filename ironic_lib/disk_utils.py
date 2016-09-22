@@ -619,9 +619,9 @@ def _is_disk_gpt_partitioned(device, node_uuid):
     :returns: Boolean. Returns True if disk is GPT partitioned
     """
     try:
-        output = utils.execute('blkid', '-p', '-o', 'value', '-s', 'PTTYPE',
-                               device, use_standard_locale=True,
-                               run_as_root=True)
+        stdout, _stderr = utils.execute(
+            'blkid', '-p', '-o', 'value', '-s', 'PTTYPE', device,
+            use_standard_locale=True, run_as_root=True)
     except (processutils.UnknownArgumentError,
             processutils.ProcessExecutionError, OSError) as e:
         msg = (_('Failed to retrieve partition table type for disk %(disk)s '
@@ -630,7 +630,7 @@ def _is_disk_gpt_partitioned(device, node_uuid):
         LOG.error(msg)
         raise exception.InstanceDeployFailure(msg)
 
-    return 'gpt' in output
+    return (stdout.lower().strip() == 'gpt')
 
 
 def _fix_gpt_structs(device, node_uuid):

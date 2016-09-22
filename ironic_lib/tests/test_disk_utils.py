@@ -771,7 +771,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         self.assertEqual(1, mock_log.call_count)
 
     def test__is_disk_gpt_partitioned_true(self, mock_execute):
-        blkid_output = 'gpt'
+        blkid_output = 'gpt\n'
         mock_execute.return_value = (blkid_output, '')
         result = disk_utils._is_disk_gpt_partitioned('/dev/fake',
                                                      self.node_uuid)
@@ -782,7 +782,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
                                              run_as_root=True)
 
     def test_is_disk_gpt_partitioned_false(self, mock_execute):
-        blkid_output = 'dos'
+        blkid_output = 'dos\n'
         mock_execute.return_value = (blkid_output, '')
         result = disk_utils._is_disk_gpt_partitioned('/dev/fake',
                                                      self.node_uuid)
