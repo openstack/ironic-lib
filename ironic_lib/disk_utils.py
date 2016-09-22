@@ -568,7 +568,7 @@ def _is_disk_larger_than_max_size(device, node_uuid):
         LOG.error(msg)
         raise exception.InstanceDeployFailure(msg)
 
-    disksize_mb = int(disksize_bytes) // 1024 // 1024
+    disksize_mb = int(disksize_bytes[0].strip()) // 1024 // 1024
 
     return disksize_mb > MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR
 

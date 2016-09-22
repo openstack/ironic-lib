@@ -738,7 +738,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         self.assertEqual(1, mock_log.call_count)
 
     def _test_is_disk_larger_than_max_size(self, mock_execute, blk_out):
-        mock_execute.return_value = blk_out
+        mock_execute.return_value = ('%s\n' % blk_out, '')
         result = disk_utils._is_disk_larger_than_max_size(self.dev,
                                                           self.node_uuid)
         mock_execute.assert_called_once_with('blockdev', '--getsize64',
