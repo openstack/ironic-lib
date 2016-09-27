@@ -198,7 +198,7 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              disk_label=None)
         mock_unlink.assert_called_once_with('fake-path')
 
-    @mock.patch.object(utils, 'mkfs', lambda *_: None)
+    @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
     @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
     @mock.patch.object(disk_utils, 'populate_image', lambda *_: None)
     def test_gpt_disk_label(self):
@@ -470,7 +470,7 @@ def _looping_call_done(*args, **kwargs):
 @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
 @mock.patch.object(disk_utils, 'dd', lambda *_: None)
 @mock.patch.object(disk_utils, 'convert_image', lambda *_: None)
-@mock.patch.object(utils, 'mkfs', lambda *_: None)
+@mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
 # NOTE(dtantsur): destroy_disk_metadata resets file size, disabling it
 @mock.patch.object(disk_utils, 'destroy_disk_metadata', lambda *_: None)
 class RealFilePartitioningTestCase(test_base.BaseTestCase):
