@@ -738,7 +738,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             if len(new_part) != 1:
                 raise exception.InstanceDeployFailure(
                     _('Disk partitioning failed on device %(device)s. '
-                      'Unable to retrive config drive partition information.')
+                      'Unable to retrieve config drive partition information.')
                     % {'device': device})
 
             if is_iscsi_device(device, node_uuid):
