@@ -105,6 +105,31 @@ def list_partitions(device):
     return result
 
 
+def count_mbr_partitions(device):
+    """Count the number of primary and logical partitions on a MBR
+
+    :param device: The device path.
+    :returns: A tuple with the number of primary partitions and logical
+              partitions.
+    :raise: ValueError if the device does not have a valid MBR parititon
+            table.
+    """
+    # -d do not update the kernel table
+    # -s print a summary of the partition table
+    output, err = utils.execute('partprobe', '-d', '-s', device,
+                                run_as_root=True, use_standard_locale=True)
+    if 'msdos' not in output:
+        raise ValueError('The device %s does not have a valid MBR '
+                         'partition table')
+
+    # Sample output: /dev/vdb: msdos partitions 1 2 3 <5 6 7>
+    # The partitions with number > 4 (and inside <>) are logical partitions
+    output = output.replace('<', '').replace('>', '')
+    partitions = [int(s) for s in output.split() if s.isdigit()]
+
+    return(sum(i < 5 for i in partitions), sum(i > 4 for i in partitions))
+
+
 def get_disk_identifier(dev):
     """Get the disk identifier from the disk being exposed by the ramdisk.
 
@@ -706,15 +731,23 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                 # Check if the disk has 4 partitions. The MBR based disk
                 # cannot have more than 4 partitions.
                 # TODO(stendulker): One can use logical partitions to create
-                # a config drive if there are 4 primary partitions.
+                # a config drive if there are 3 primary partitions.
                 # https://bugs.launchpad.net/ironic/+bug/1561283
-                num_parts = len(list_partitions(device))
-                if num_parts > 3:
+                try:
+                    pp_count, lp_count = count_mbr_partitions(device)
+                except ValueError as e:
+                    raise exception.InstanceDeployFailure(
+                        _('Failed to check the number of primary partitions '
+                          'present on %(dev)s for node %(node)s. Error: '
+                          '%(error)s') % {'dev': device, 'node': node_uuid,
+                                          'error': e})
+                if pp_count > 3:
                     raise exception.InstanceDeployFailure(
                         _('Config drive cannot be created for node %(node)s. '
-                          'Disk uses MBR partitioning and already has '
-                          '%(parts)d primary partitions.')
-                        % {'node': node_uuid, 'parts': num_parts})
+                          'Disk (%(dev)s) uses MBR partitioning and already '
+                          'has %(parts)d primary partitions.')
+                        % {'node': node_uuid, 'dev': device,
+                           'parts': pp_count})
 
                 # Check if disk size exceeds 2TB msdos limit
                 startlimit = '-%dMiB' % MAX_CONFIG_DRIVE_SIZE_MB
@@ -738,7 +771,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             if len(new_part) != 1:
                 raise exception.InstanceDeployFailure(
                     _('Disk partitioning failed on device %(device)s. '
-                      'Unable to retrive config drive partition information.')
+                      'Unable to retrieve config drive partition information.')
                     % {'device': device})
 
             if is_iscsi_device(device, node_uuid):
