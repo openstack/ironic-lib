@@ -672,6 +672,38 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
         self.assertEqual(2, disk_utils.get_image_mb('x', False))
         self.assertEqual(2, disk_utils.get_image_mb('x', True))
 
+    def _test_count_mbr_partitions(self, output, mock_execute):
+        mock_execute.return_value = (output, '')
+        out = disk_utils.count_mbr_partitions('/dev/fake')
+        mock_execute.assert_called_once_with('partprobe', '-d', '-s',
+                                             '/dev/fake', run_as_root=True,
+                                             use_standard_locale=True)
+        return out
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_count_mbr_partitions(self, mock_execute):
+        output = "/dev/fake: msdos partitions 1 2 3 <5 6>"
+        pp, lp = self._test_count_mbr_partitions(output, mock_execute)
+        self.assertEqual(3, pp)
+        self.assertEqual(2, lp)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_count_mbr_partitions_no_logical_partitions(self, mock_execute):
+        output = "/dev/fake: msdos partitions 1 2"
+        pp, lp = self._test_count_mbr_partitions(output, mock_execute)
+        self.assertEqual(2, pp)
+        self.assertEqual(0, lp)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_count_mbr_partitions_wrong_partition_table(self, mock_execute):
+        output = "/dev/fake: gpt partitions 1 2 3 4 5 6"
+        mock_execute.return_value = (output, '')
+        self.assertRaises(ValueError, disk_utils.count_mbr_partitions,
+                          '/dev/fake')
+        mock_execute.assert_called_once_with('partprobe', '-d', '-s',
+                                             '/dev/fake', run_as_root=True,
+                                             use_standard_locale=True)
+
 
 @mock.patch.object(utils, 'execute')
 class WholeDiskPartitionTestCases(test_base.BaseTestCase):
@@ -949,6 +981,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_dd.assert_called_with(configdrive_file, expected_part)
         mock_unlink.assert_called_with(configdrive_file)
 
+    @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(disk_utils.LOG, 'warning')
     @mock.patch.object(utils, 'unlink_without_raise',
@@ -973,7 +1006,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                    mock_is_disk_gpt, mock_fix_gpt,
                                    mock_disk_exceeds, mock_dd,
                                    mock_unlink, mock_log, mock_execute,
-                                   disk_size_exceeds_max=False,
+                                   mock_count, disk_size_exceeds_max=False,
                                    is_iscsi_device=False):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
@@ -997,8 +1030,9 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                               {'end': 51099, 'number': 5, 'start': 49153,
                                'flags': '', 'filesystem': '', 'size': 2046}]
         mock_list_partitions.side_effect = [initial_partitions,
-                                            initial_partitions,
                                             updated_partitions]
+        # 2 primary partitions, 0 logical partitions
+        mock_count.return_value = (2, 0)
         mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
         mock_get_labelled_partition.return_value = None
         mock_is_disk_gpt.return_value = False
@@ -1026,12 +1060,13 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                             '--', self.dev, 'mkpart',
                                             'primary', 'ext2', '-64MiB',
                                             '-0', run_as_root=True)
-        self.assertEqual(3, mock_list_partitions.call_count)
+        self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         mock_dd.assert_called_with(configdrive_file, expected_part)
         mock_unlink.assert_called_with(configdrive_file)
         self.assertFalse(mock_fix_gpt.called)
+        mock_count.assert_called_with(self.dev)
 
     def test__create_partition_mbr_disk_under_2TB(self):
         self._test_create_partition_mbr(disk_size_exceeds_max=False,
@@ -1041,6 +1076,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         self._test_create_partition_mbr(disk_size_exceeds_max=True,
                                         is_iscsi_device=False)
 
+    @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
@@ -1063,7 +1099,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                                mock_list_partitions,
                                                mock_is_disk_gpt, mock_fix_gpt,
                                                mock_disk_exceeds, mock_dd,
-                                               mock_unlink, mock_execute):
+                                               mock_unlink, mock_execute,
+                                               mock_count):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1089,6 +1126,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_list_partitions.side_effect = [initial_partitions,
                                             initial_partitions,
                                             updated_partitions]
+        # 2 primary partitions, 0 logical partitions
+        mock_count.return_value = (2, 0)
 
         self.assertRaisesRegex(exception.InstanceDeployFailure,
                                'Disk partitioning failed on device',
@@ -1100,13 +1139,15 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                         self.dev, 'mkpart', 'primary',
                                         'ext2', '-64MiB', '-0',
                                         run_as_root=True)
-        self.assertEqual(3, mock_list_partitions.call_count)
+        self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
         self.assertFalse(mock_dd.called)
         mock_unlink.assert_called_with(configdrive_file)
+        mock_count.assert_called_once_with(self.dev)
 
+    @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
@@ -1129,7 +1170,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                               mock_list_partitions,
                                               mock_is_disk_gpt, mock_fix_gpt,
                                               mock_disk_exceeds, mock_dd,
-                                              mock_unlink, mock_execute):
+                                              mock_unlink, mock_execute,
+                                              mock_count):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1147,6 +1189,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_disk_exceeds.return_value = False
         mock_list_partitions.side_effect = [initial_partitions,
                                             initial_partitions]
+        # 2 primary partitions, 0 logical partitions
+        mock_count.return_value = (2, 0)
 
         mock_execute.side_effect = processutils.ProcessExecutionError
 
@@ -1160,13 +1204,15 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                         self.dev, 'mkpart', 'primary',
                                         'ext2', '-64MiB', '-0',
                                         run_as_root=True)
-        self.assertEqual(2, mock_list_partitions.call_count)
+        self.assertEqual(1, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
         self.assertFalse(mock_dd.called)
         mock_unlink.assert_called_with(configdrive_file)
+        mock_count.assert_called_once_with(self.dev)
 
+    @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
     @mock.patch.object(disk_utils, 'dd',
@@ -1185,7 +1231,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                                mock_get_labelled_partition,
                                                mock_list_partitions,
                                                mock_is_disk_gpt, mock_fix_gpt,
-                                               mock_dd, mock_unlink):
+                                               mock_dd, mock_unlink,
+                                               mock_count):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1203,6 +1250,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_get_labelled_partition.return_value = None
         mock_is_disk_gpt.return_value = False
         mock_list_partitions.side_effect = [partitions, partitions]
+        # 4 primary partitions, 0 logical partitions
+        mock_count.return_value = (4, 0)
 
         self.assertRaisesRegex(exception.InstanceDeployFailure,
                                'Config drive cannot be created for node',
@@ -1210,11 +1259,12 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                self.node_uuid, self.dev, config_url)
 
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
-        self.assertEqual(2, mock_list_partitions.call_count)
+        self.assertEqual(1, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
         self.assertFalse(mock_dd.called)
         mock_unlink.assert_called_with(configdrive_file)
+        mock_count.assert_called_once_with(self.dev)
 
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
@@ -1240,3 +1290,35 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
 
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         mock_unlink.assert_called_with(configdrive_file)
+
+    @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
+    @mock.patch.object(utils, 'execute', autospec=True)
+    @mock.patch.object(utils, 'unlink_without_raise',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_labelled_partition',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_get_configdrive',
+                       autospec=True)
+    def test_create_partition_conf_drive_error_counting(
+            self, mock_get_configdrive, mock_get_labelled_partition,
+            mock_is_disk_gpt, mock_unlink, mock_execute, mock_count):
+        config_url = 'http://1.2.3.4/cd'
+        configdrive_file = '/tmp/xyz'
+        configdrive_mb = 10
+
+        mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
+        mock_get_labelled_partition.return_value = None
+        mock_is_disk_gpt.return_value = False
+        mock_count.side_effect = ValueError('Booooom')
+
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'Failed to check the number of primary ',
+                               disk_utils.create_config_drive_partition,
+                               self.node_uuid, self.dev, config_url)
+
+        mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
+        mock_unlink.assert_called_with(configdrive_file)
+        mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_count.assert_called_once_with(self.dev)
