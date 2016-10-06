@@ -111,7 +111,7 @@ def count_mbr_partitions(device):
     :param device: The device path.
     :returns: A tuple with the number of primary partitions and logical
               partitions.
-    :raise: ValueError if the device does not have a valid MBR parititon
+    :raise: ValueError if the device does not have a valid MBR partition
             table.
     """
     # -d do not update the kernel table
@@ -120,8 +120,7 @@ def count_mbr_partitions(device):
                                 run_as_root=True, use_standard_locale=True)
     if 'msdos' not in output:
         raise ValueError('The device %s does not have a valid MBR '
-                         'partition table')
-
+                         'partition table' % device)
     # Sample output: /dev/vdb: msdos partitions 1 2 3 <5 6 7>
     # The partitions with number > 4 (and inside <>) are logical partitions
     output = output.replace('<', '').replace('>', '')
