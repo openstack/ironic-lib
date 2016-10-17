@@ -772,6 +772,11 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             else:
                 config_drive_part = '%s%s' % (device, new_part.pop())
 
+            # NOTE(vdrok): the partition was created successfully, let's wait
+            # for it to appear in /dev.
+            utils.execute('udevadm', 'settle',
+                          '--exit-if-exists=%s' % config_drive_part)
+
         dd(confdrive_file, config_drive_part)
         LOG.info(_LI("Configdrive for node %(node)s successfully "
                      "copied onto partition %(part)s"),
