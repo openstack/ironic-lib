@@ -21,7 +21,6 @@ import shutil
 import stat
 import tempfile
 
-
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_service import loopingcall
@@ -908,9 +907,9 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     def test_create_partition_gpt(self, mock_get_configdrive,
                                   mock_get_labelled_partition,
-                                  mock_list_partitions,
-                                  mock_is_disk_gpt, mock_fix_gpt,
-                                  mock_dd, mock_unlink, mock_execute):
+                                  mock_list_partitions, mock_is_disk_gpt,
+                                  mock_fix_gpt, mock_dd, mock_unlink,
+                                  mock_execute):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -941,8 +940,12 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         expected_part = '/dev/fake4'
         disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
                                                  config_url)
-        mock_execute.assert_called_with('sgdisk', '-n', '0:-64MB:0',
-                                        self.dev, run_as_root=True)
+        mock_execute.assert_has_calls([
+            mock.call('sgdisk', '-n', '0:-64MB:0', self.dev,
+                      run_as_root=True),
+            mock.call('udevadm', 'settle',
+                      '--exit-if-exists=%s' % expected_part),
+        ])
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_fix_gpt.assert_called_with(self.dev, self.node_uuid)
@@ -1016,16 +1019,21 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         if disk_size_exceeds_max:
             self.assertEqual(1, mock_log.call_count)
-            mock_execute.assert_called_with('parted', '-a', 'optimal', '-s',
-                                            '--', self.dev, 'mkpart',
-                                            'primary', 'ext2', 2097087,
-                                            2097151, run_as_root=True)
+            parted_call = mock.call('parted', '-a', 'optimal', '-s',
+                                    '--', self.dev, 'mkpart',
+                                    'primary', 'ext2', 2097087,
+                                    2097151, run_as_root=True)
         else:
             self.assertEqual(0, mock_log.call_count)
-            mock_execute.assert_called_with('parted', '-a', 'optimal', '-s',
-                                            '--', self.dev, 'mkpart',
-                                            'primary', 'ext2', '-64MiB',
-                                            '-0', run_as_root=True)
+            parted_call = mock.call('parted', '-a', 'optimal', '-s',
+                                    '--', self.dev, 'mkpart',
+                                    'primary', 'ext2', '-64MiB',
+                                    '-0', run_as_root=True)
+        mock_execute.assert_has_calls([
+            parted_call,
+            mock.call('udevadm', 'settle',
+                      '--exit-if-exists=%s' % expected_part),
+        ])
         self.assertEqual(3, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
