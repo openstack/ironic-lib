@@ -228,6 +228,71 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              boot_mode="bios",
                                              disk_label='gpt')
 
+    @mock.patch.object(disk_utils, 'block_uuid')
+    @mock.patch.object(disk_utils, 'populate_image')
+    @mock.patch.object(utils, 'mkfs')
+    def test_uefi_localboot(self, mock_mkfs, mock_populate_image,
+                            mock_block_uuid):
+        """Test that we create a fat filesystem with UEFI localboot."""
+        root_part = '/dev/fake-part1'
+        efi_part = '/dev/fake-part2'
+        self.mock_mp.return_value = {'root': root_part,
+                                     'efi system partition': efi_part}
+        self.mock_ibd.return_value = True
+        mock_ibd_calls = [mock.call(root_part),
+                          mock.call(efi_part)]
+
+        disk_utils.work_on_disk(self.dev, self.root_mb,
+                                self.swap_mb, self.ephemeral_mb,
+                                self.ephemeral_format,
+                                self.image_path, self.node_uuid,
+                                boot_option="local", boot_mode="uefi")
+
+        self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
+                                             self.swap_mb, self.ephemeral_mb,
+                                             self.configdrive_mb,
+                                             self.node_uuid, commit=True,
+                                             boot_option="local",
+                                             boot_mode="uefi",
+                                             disk_label=None)
+        self.assertEqual(self.mock_ibd.call_args_list, mock_ibd_calls)
+        mock_mkfs.assert_called_once_with(fs='vfat', path=efi_part,
+                                          label='efi-part')
+        mock_populate_image.assert_called_once_with(self.image_path,
+                                                    root_part)
+        mock_block_uuid.assert_any_call(root_part)
+        mock_block_uuid.assert_any_call(efi_part)
+
+    @mock.patch.object(disk_utils, 'block_uuid')
+    @mock.patch.object(disk_utils, 'populate_image')
+    @mock.patch.object(utils, 'mkfs')
+    def test_preserve_ephemeral(self, mock_mkfs, mock_populate_image,
+                                mock_block_uuid):
+        """Test that ephemeral partition doesn't get overwritten."""
+        ephemeral_part = '/dev/fake-part1'
+        root_part = '/dev/fake-part2'
+        ephemeral_mb = 256
+        ephemeral_format = 'exttest'
+
+        self.mock_mp.return_value = {'ephemeral': ephemeral_part,
+                                     'root': root_part}
+        self.mock_ibd.return_value = True
+        calls = [mock.call(root_part),
+                 mock.call(ephemeral_part)]
+        disk_utils.work_on_disk(self.dev, self.root_mb,
+                                self.swap_mb, ephemeral_mb, ephemeral_format,
+                                self.image_path, self.node_uuid,
+                                preserve_ephemeral=True)
+        self.assertEqual(self.mock_ibd.call_args_list, calls)
+        self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
+                                             self.swap_mb, ephemeral_mb,
+                                             self.configdrive_mb,
+                                             self.node_uuid, commit=False,
+                                             boot_option="netboot",
+                                             boot_mode="bios",
+                                             disk_label=None)
+        self.assertFalse(mock_mkfs.called)
+
 
 @mock.patch.object(utils, 'execute', autospec=True)
 class MakePartitionsTestCase(test_base.BaseTestCase):
