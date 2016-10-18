@@ -24,7 +24,9 @@ using the `get_metrics_logger()` method in `ironic_lib.metrics_utils`, then
 use that object to decorate functions or create context managers to gather
 metrics. The general convention is to provide the name of the module as the
 first argument to set it as the prefix, then set the actual metric name to the
-method name. For example::
+method name. For example:
+
+.. code-block:: python
 
   from ironic_lib import metrics_utils
 
@@ -53,7 +55,9 @@ There are three different kinds of metrics:
 
 Additionally, metrics can be sent directly, rather than using a context
 manager or decorator, when appropriate. When used in this way, ironic-lib will
-simply emit the value provided as the requested metric type. For example::
+simply emit the value provided as the requested metric type. For example:
+
+.. code-block:: python
 
   from ironic_lib import metrics_utils
 
