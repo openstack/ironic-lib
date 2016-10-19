@@ -774,6 +774,9 @@ def create_config_drive_partition(node_uuid, device, configdrive):
 
             # NOTE(vdrok): the partition was created successfully, let's wait
             # for it to appear in /dev.
+            LOG.debug('Waiting for the config drive partition %(part)s '
+                      'on node %(node)s to be ready for writing.',
+                      {'part': config_drive_part, 'node': node_uuid})
             utils.execute('udevadm', 'settle',
                           '--exit-if-exists=%s' % config_drive_part)
 
