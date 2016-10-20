@@ -227,9 +227,9 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
                                              boot_mode="bios",
                                              disk_label='gpt')
 
-    @mock.patch.object(disk_utils, 'block_uuid')
-    @mock.patch.object(disk_utils, 'populate_image')
-    @mock.patch.object(utils, 'mkfs')
+    @mock.patch.object(disk_utils, 'block_uuid', autospec=True)
+    @mock.patch.object(disk_utils, 'populate_image', autospec=True)
+    @mock.patch.object(utils, 'mkfs', autospec=True)
     def test_uefi_localboot(self, mock_mkfs, mock_populate_image,
                             mock_block_uuid):
         """Test that we create a fat filesystem with UEFI localboot."""
@@ -262,9 +262,9 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
         mock_block_uuid.assert_any_call(root_part)
         mock_block_uuid.assert_any_call(efi_part)
 
-    @mock.patch.object(disk_utils, 'block_uuid')
-    @mock.patch.object(disk_utils, 'populate_image')
-    @mock.patch.object(utils, 'mkfs')
+    @mock.patch.object(disk_utils, 'block_uuid', autospec=True)
+    @mock.patch.object(disk_utils, 'populate_image', autospec=True)
+    @mock.patch.object(utils, 'mkfs', autospec=True)
     def test_preserve_ephemeral(self, mock_mkfs, mock_populate_image,
                                 mock_block_uuid):
         """Test that ephemeral partition doesn't get overwritten."""
@@ -769,7 +769,7 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
                                              use_standard_locale=True)
 
 
-@mock.patch.object(utils, 'execute')
+@mock.patch.object(utils, 'execute', autospec=True)
 class WholeDiskPartitionTestCases(test_base.BaseTestCase):
 
     def setUp(self):
@@ -822,7 +822,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         ]
         mock_execute.assert_has_calls(execute_calls)
 
-    @mock.patch.object(disk_utils.LOG, 'error')
+    @mock.patch.object(disk_utils.LOG, 'error', autospec=True)
     def test_get_partition_exc(self, mock_log, mock_execute):
         mock_execute.side_effect = processutils.ProcessExecutionError
         self.assertRaisesRegex(exception.InstanceDeployFailure,
@@ -854,7 +854,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
                                                       blk_out=blkid_out)
         self.assertTrue(ret)
 
-    @mock.patch.object(disk_utils.LOG, 'error')
+    @mock.patch.object(disk_utils.LOG, 'error', autospec=True)
     def test_is_disk_larger_than_max_size_exc(self, mock_log, mock_execute):
         mock_execute.side_effect = processutils.ProcessExecutionError
         self.assertRaisesRegex(exception.InstanceDeployFailure,
@@ -888,7 +888,7 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
                                              use_standard_locale=True,
                                              run_as_root=True)
 
-    @mock.patch.object(disk_utils.LOG, 'error')
+    @mock.patch.object(disk_utils.LOG, 'error', autospec=True)
     def test_is_disk_gpt_partitioned_exc(self, mock_log, mock_execute):
         mock_execute.side_effect = processutils.ProcessExecutionError
         self.assertRaisesRegex(exception.InstanceDeployFailure,
@@ -927,7 +927,7 @@ or continue with the current setting?
                                              use_standard_locale=True,
                                              run_as_root=True)
 
-    @mock.patch.object(disk_utils.LOG, 'error')
+    @mock.patch.object(disk_utils.LOG, 'error', autospec=True)
     def test_fix_gpt_structs_exc(self, mock_log, mock_execute):
         mock_execute.side_effect = processutils.ProcessExecutionError
         self.assertRaisesRegex(exception.InstanceDeployFailure,
