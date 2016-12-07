@@ -54,7 +54,7 @@ LOG = logging.getLogger(__name__)
 VALID_ROOT_DEVICE_HINTS = {
     'size': int, 'model': str, 'wwn': str, 'serial': str, 'vendor': str,
     'wwn_with_extension': str, 'wwn_vendor_extension': str, 'name': str,
-    'rotational': bool,
+    'rotational': bool, 'hctl': str,
 }
 
 
@@ -348,6 +348,8 @@ def match_root_device_hints(devices, root_device_hints):
         :rotational: (Boolean) Whether it's a rotational device or
                      not. Useful to distinguish HDDs (rotational) and SSDs
                      (not rotational).
+        :hctl: (String): The SCSI address: Host, channel, target and lun.
+                         For example: '1:0:0:0'.
 
     :param root_device_hints: A dictionary with the root device hints.
     :raises: ValueError, if some information is invalid.
