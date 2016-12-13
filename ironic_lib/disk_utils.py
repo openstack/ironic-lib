@@ -356,14 +356,15 @@ def destroy_disk_metadata(dev, node_uuid):
                       run_as_root=True,
                       use_standard_locale=True)
     except processutils.ProcessExecutionError as e:
-        # NOTE(zhenguo): Check if --force option is supported for wipefs,
-        # if not, we should try without it.
-        if '--force' in str(e):
-            utils.execute('wipefs', '--all', dev,
-                          run_as_root=True,
-                          use_standard_locale=True)
-        else:
-            raise e
+        with excutils.save_and_reraise_exception() as ctxt:
+            # NOTE(zhenguo): Check if --force option is supported for wipefs,
+            # if not, we should try without it.
+            if '--force' in str(e):
+                ctxt.reraise = False
+                utils.execute('wipefs', '--all', dev,
+                              run_as_root=True,
+                              use_standard_locale=True)
+
     LOG.info(_LI("Disk metadata on %(dev)s successfully destroyed for node "
                  "%(node)s"), {'dev': dev, 'node': node_uuid})
 
