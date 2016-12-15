@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import base64
 import gzip
 import mock
 import os
@@ -23,6 +22,7 @@ import tempfile
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
+from oslo_serialization import base64
 from oslo_service import loopingcall
 from oslo_utils import imageutils
 from oslotest import base as test_base
@@ -639,7 +639,7 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
                           'http://1.2.3.4/cd', 'fake-node-uuid')
         self.assertFalse(mock_copy.called)
 
-    @mock.patch.object(base64, 'b64decode', autospec=True)
+    @mock.patch.object(base64, 'decode_as_bytes', autospec=True)
     def test_get_configdrive_base64_error(self, mock_b64, mock_requests,
                                           mock_copy):
         mock_b64.side_effect = TypeError
