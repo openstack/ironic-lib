@@ -1120,13 +1120,13 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
             self.assertEqual(1, mock_log.call_count)
             parted_call = mock.call('parted', '-a', 'optimal', '-s',
                                     '--', self.dev, 'mkpart',
-                                    'primary', 'ext2', 2097087,
+                                    'primary', 'fat32', 2097087,
                                     2097151, run_as_root=True)
         else:
             self.assertEqual(0, mock_log.call_count)
             parted_call = mock.call('parted', '-a', 'optimal', '-s',
                                     '--', self.dev, 'mkpart',
-                                    'primary', 'ext2', '-64MiB',
+                                    'primary', 'fat32', '-64MiB',
                                     '-0', run_as_root=True)
         mock_execute.assert_has_calls([
             parted_call,
@@ -1210,7 +1210,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         mock_execute.assert_called_with('parted', '-a', 'optimal', '-s', '--',
                                         self.dev, 'mkpart', 'primary',
-                                        'ext2', '-64MiB', '-0',
+                                        'fat32', '-64MiB', '-0',
                                         run_as_root=True)
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
@@ -1275,7 +1275,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         mock_execute.assert_called_with('parted', '-a', 'optimal', '-s', '--',
                                         self.dev, 'mkpart', 'primary',
-                                        'ext2', '-64MiB', '-0',
+                                        'fat32', '-64MiB', '-0',
                                         run_as_root=True)
         self.assertEqual(1, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)

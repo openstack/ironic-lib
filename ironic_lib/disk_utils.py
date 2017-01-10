@@ -757,7 +757,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                     endlimit = MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR - 1
 
                 utils.execute('parted', '-a', 'optimal', '-s', '--', device,
-                              'mkpart', 'primary', 'ext2', startlimit,
+                              'mkpart', 'primary', 'fat32', startlimit,
                               endlimit, run_as_root=True)
 
             upd_parts = set(part['number'] for part in list_partitions(device))
