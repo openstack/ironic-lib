@@ -19,6 +19,7 @@ import math
 import os
 import re
 import requests
+import shlex
 import shutil
 import six
 import stat
@@ -605,10 +606,12 @@ def _get_labelled_partition(device, label, node_uuid):
     """
     try:
         utils.execute('partprobe', device, run_as_root=True)
-        label_arg = 'LABEL=%s' % label
-        output, err = utils.execute('blkid', '-o', 'device', device,
-                                    '-t', label_arg, check_exit_code=[0, 2],
+
+        # lsblk command
+        output, err = utils.execute('lsblk', '-Po', 'name,label', device,
+                                    check_exit_code=[0, 1],
                                     use_standard_locale=True, run_as_root=True)
+
     except (processutils.UnknownArgumentError,
             processutils.ProcessExecutionError, OSError) as e:
         msg = (_('Failed to retrieve partition labels on disk %(disk)s '
@@ -617,14 +620,24 @@ def _get_labelled_partition(device, label, node_uuid):
         LOG.error(msg)
         raise exception.InstanceDeployFailure(msg)
 
+    found_part = None
     if output:
-        if len(output.split()) > 1:
-            raise exception.InstanceDeployFailure(
-                _('More than one config drive exists on device %(device)s '
-                  'for node %(node)s.')
-                % {'device': device, 'node': node_uuid})
+        for device in output.split('\n'):
+            dev = {key: value for key, value in (v.split('=', 1)
+                   for v in shlex.split(device))}
+            if not dev:
+                continue
+            if dev['LABEL'] == label:
+                if found_part:
+                    raise exception.InstanceDeployFailure(
+                        _('More than one partition with label '
+                          '%(label)s exists on device %(device)s '
+                          'for node %(node)s.') %
+                        {'label': label, 'device': device,
+                         'node': node_uuid})
+                found_part = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
 
-        return output.rstrip()
+    return found_part
 
 
 def _is_disk_gpt_partitioned(device, node_uuid):

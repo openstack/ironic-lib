@@ -779,16 +779,17 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         self.node_uuid = "12345678-1234-1234-1234-1234567890abcxyz"
 
     def test_get_partition_present(self, mock_execute):
-        blkid_output = '/dev/fake12\n'
-        mock_execute.side_effect = [(None, ''), (blkid_output, '')]
+        lsblk_output = 'NAME="fake12" LABEL="config-2"\n'
+        part_result = '/dev/fake12'
+        mock_execute.side_effect = [(None, ''), (lsblk_output, '')]
         result = disk_utils._get_labelled_partition(self.dev,
                                                     self.config_part_label,
                                                     self.node_uuid)
-        self.assertEqual(blkid_output.rstrip(), result)
+        self.assertEqual(part_result, result)
         execute_calls = [
             mock.call('partprobe', self.dev, run_as_root=True),
-            mock.call('blkid', '-o', 'device', self.dev, '-t',
-                      'LABEL=config-2', check_exit_code=[0, 2],
+            mock.call('lsblk', '-Po', 'name,label', self.dev,
+                      check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
         ]
         mock_execute.assert_has_calls(execute_calls)
@@ -802,22 +803,25 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         self.assertIsNone(result)
         execute_calls = [
             mock.call('partprobe', self.dev, run_as_root=True),
-            mock.call('blkid', '-o', 'device', self.dev, '-t',
-                      'LABEL=config-2', check_exit_code=[0, 2],
+            mock.call('lsblk', '-Po', 'name,label', self.dev,
+                      check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
         ]
         mock_execute.assert_has_calls(execute_calls)
 
     def test_get_partition_DeployFail_exc(self, mock_execute):
-        blkid_output = '/dev/fake12\n/dev/fake13\n'
-        mock_execute.side_effect = [(None, ''), (blkid_output, '')]
+        label = 'config-2'
+        lsblk_output = ('NAME="fake12" LABEL="%s"\n'
+                        'NAME="fake13" LABEL="%s"\n' %
+                        (label, label))
+        mock_execute.side_effect = [(None, ''), (lsblk_output, '')]
         self.assertRaises(exception.InstanceDeployFailure,
                           disk_utils._get_labelled_partition, self.dev,
                           self.config_part_label, self.node_uuid)
         execute_calls = [
             mock.call('partprobe', self.dev, run_as_root=True),
-            mock.call('blkid', '-o', 'device', self.dev, '-t',
-                      'LABEL=config-2', check_exit_code=[0, 2],
+            mock.call('lsblk', '-Po', 'name,label', self.dev,
+                      check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
         ]
         mock_execute.assert_has_calls(execute_calls)
