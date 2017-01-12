@@ -815,9 +815,10 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
                         'NAME="fake13" LABEL="%s"\n' %
                         (label, label))
         mock_execute.side_effect = [(None, ''), (lsblk_output, '')]
-        self.assertRaises(exception.InstanceDeployFailure,
-                          disk_utils._get_labelled_partition, self.dev,
-                          self.config_part_label, self.node_uuid)
+        self.assertRaisesRegex(exception.InstanceDeployFailure,
+                               'fake .*fake12 .*fake13',
+                               disk_utils._get_labelled_partition, self.dev,
+                               self.config_part_label, self.node_uuid)
         execute_calls = [
             mock.call('partprobe', self.dev, run_as_root=True),
             mock.call('lsblk', '-Po', 'name,label', self.dev,

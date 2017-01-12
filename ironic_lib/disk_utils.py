@@ -593,10 +593,10 @@ def _is_disk_larger_than_max_size(device, node_uuid):
     return disksize_mb > MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR
 
 
-def _get_labelled_partition(device, label, node_uuid):
+def _get_labelled_partition(device_path, label, node_uuid):
     """Check and return if partition with given label exists
 
-    :param device: The device path.
+    :param device_path: The device path.
     :param label: Partition label
     :param node_uuid: UUID of the Node. Used for logging.
     :raises: InstanceDeployFailure, if any disk partitioning related
@@ -605,10 +605,10 @@ def _get_labelled_partition(device, label, node_uuid):
               returns None.
     """
     try:
-        utils.execute('partprobe', device, run_as_root=True)
+        utils.execute('partprobe', device_path, run_as_root=True)
 
         # lsblk command
-        output, err = utils.execute('lsblk', '-Po', 'name,label', device,
+        output, err = utils.execute('lsblk', '-Po', 'name,label', device_path,
                                     check_exit_code=[0, 1],
                                     use_standard_locale=True, run_as_root=True)
 
@@ -616,7 +616,7 @@ def _get_labelled_partition(device, label, node_uuid):
             processutils.ProcessExecutionError, OSError) as e:
         msg = (_('Failed to retrieve partition labels on disk %(disk)s '
                  'for node %(node)s. Error: %(error)s') %
-               {'disk': device, 'node': node_uuid, 'error': e})
+               {'disk': device_path, 'node': node_uuid, 'error': e})
         LOG.error(msg)
         raise exception.InstanceDeployFailure(msg)
 
@@ -629,12 +629,14 @@ def _get_labelled_partition(device, label, node_uuid):
                 continue
             if dev['LABEL'] == label:
                 if found_part:
+                    found_2 = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
+                    found = [found_part, found_2]
                     raise exception.InstanceDeployFailure(
-                        _('More than one partition with label '
-                          '%(label)s exists on device %(device)s '
-                          'for node %(node)s.') %
-                        {'label': label, 'device': device,
-                         'node': node_uuid})
+                        _('More than one partition with label "%(label)s" '
+                          'exists on device %(device)s for node %(node)s: '
+                          '%(found)s.') %
+                        {'label': label, 'device': device_path,
+                         'node': node_uuid, 'found': ' and '.join(found)})
                 found_part = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
 
     return found_part
