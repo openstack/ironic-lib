@@ -700,7 +700,8 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
         disk_utils.qemu_img_info('img')
         path_exists_mock.assert_called_once_with('img')
         execute_mock.assert_called_once_with('env', 'LC_ALL=C', 'LANG=C',
-                                             'qemu-img', 'info', 'img')
+                                             'qemu-img', 'info', 'img',
+                                             prlimit=mock.ANY)
         qemu_img_info_mock.assert_called_once_with('out')
 
     @mock.patch.object(utils, 'execute', autospec=True)
@@ -708,7 +709,8 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
         disk_utils.convert_image('source', 'dest', 'out_format')
         execute_mock.assert_called_once_with('qemu-img', 'convert', '-O',
                                              'out_format', 'source', 'dest',
-                                             run_as_root=False)
+                                             run_as_root=False,
+                                             prlimit=mock.ANY)
 
     @mock.patch.object(os.path, 'getsize', autospec=True)
     @mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
