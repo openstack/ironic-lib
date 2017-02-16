@@ -14,12 +14,12 @@
 #    under the License.
 
 import gzip
-import mock
 import os
 import shutil
 import stat
 import tempfile
 
+import mock
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_serialization import base64

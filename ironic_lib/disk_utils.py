@@ -18,10 +18,8 @@ import logging
 import math
 import os
 import re
-import requests
 import shlex
 import shutil
-import six
 import stat
 import tempfile
 import time
@@ -32,6 +30,8 @@ from oslo_serialization import base64
 from oslo_utils import excutils
 from oslo_utils import imageutils
 from oslo_utils import units
+import requests
+import six
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE

@@ -23,10 +23,10 @@ SHOULD include dedicated exception logging.
 """
 
 import logging
-import six
 
 from oslo_config import cfg
 from oslo_utils import excutils
+import six
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE
