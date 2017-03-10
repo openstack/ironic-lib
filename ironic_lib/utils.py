@@ -35,6 +35,7 @@ from six.moves.urllib import parse
 
 from ironic_lib.common.i18n import _
 from ironic_lib.common.i18n import _LE
+from ironic_lib.common.i18n import _LI
 from ironic_lib.common.i18n import _LW
 from ironic_lib import exception
 
@@ -356,10 +357,13 @@ def match_root_device_hints(devices, root_device_hints):
     :returns: The first device to match all the hints or None.
     """
     LOG.debug('Trying to find a device from "%(devs)s" that matches the '
-              'root device hints "%(hints)s"', {'devs': devices,
-                                                'hints': root_device_hints})
+              'root device hints "%(hints)s"',
+              {'devs': ', '.join([d.get('name') for d in devices]),
+               'hints': root_device_hints})
     parsed_hints = parse_root_device_hints(root_device_hints)
     for dev in devices:
+        device_name = dev.get('name')
+
         for hint in parsed_hints:
             hint_type = VALID_ROOT_DEVICE_HINTS[hint]
             device_value = dev.get(hint)
@@ -373,8 +377,20 @@ def match_root_device_hints(devices, root_device_hints):
                     LOG.warning(
                         _LW('The attribute "%(attr)s" of the device "%(dev)s" '
                             'has an empty value. Skipping device.'),
-                        {'attr': hint, 'dev': dev})
+                        {'attr': hint, 'dev': device_name})
                     break
+
+            if hint == 'size':
+                # Since we don't support units yet we expect the size
+                # in GiB for now
+                device_value = device_value / units.Gi
+
+            LOG.debug('Trying to match the root device hint "%(hint)s" '
+                      'with a value of "%(hint_value)s" against the same '
+                      'device\'s (%(dev)s) attribute with a value of '
+                      '"%(dev_value)s"', {'hint': hint, 'dev': device_name,
+                                          'hint_value': hint_value,
+                                          'dev_value': device_value})
 
             # NOTE(lucasagomes): Boolean hints are not supported by
             # specs_matcher.match(), so we need to do the comparison
@@ -388,22 +404,17 @@ def match_root_device_hints(devices, root_device_hints):
                                     '"%(value)s") of device "%(dev)s" is not '
                                     'a valid Boolean. Skipping device.'),
                                 {'attr': hint, 'value': device_value,
-                                 'dev': dev})
+                                 'dev': device_name})
                     break
                 if device_value == hint_value:
                     continue
                 break
 
-            if hint == 'size':
-                # Since we don't support units yet we expect the size
-                # in GiB for now
-                device_value = device_value / units.Gi
-
             if not specs_matcher.match(device_value, hint_value):
                 break
         else:
-            LOG.debug('Device found! The device "%s" matches the root '
-                      'device hints' % dev)
+            LOG.info(_LI('Device found! The device "%s" matches the root '
+                         'device hints'), device_name)
             return dev
 
-    LOG.debug('No device found that matches the root device hints')
+    LOG.warning(_LW('No device found that matches the root device hints'))
