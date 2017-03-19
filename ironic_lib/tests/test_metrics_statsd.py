@@ -21,6 +21,11 @@ from oslotest import base as test_base
 from ironic_lib import metrics_statsd
 
 
+def connect(family=None, type=None, proto=None):
+    """Dummy function to provide signature for autospec"""
+    pass
+
+
 class TestStatsdMetricLogger(test_base.BaseTestCase):
     def setUp(self):
         super(TestStatsdMetricLogger, self).setUp()
@@ -56,14 +61,14 @@ class TestStatsdMetricLogger(test_base.BaseTestCase):
         self.ml._timer('metric', 10)
         mock_send.assert_called_once_with(self.ml, 'metric', 10, 'ms')
 
-    @mock.patch('socket.socket')
+    @mock.patch('socket.socket', autospec=connect)
     def test_open_socket(self, mock_socket_constructor):
         self.ml._open_socket()
         mock_socket_constructor.assert_called_once_with(
             socket.AF_INET,
             socket.SOCK_DGRAM)
 
-    @mock.patch('socket.socket')
+    @mock.patch('socket.socket', autospec=connect)
     def test_send(self, mock_socket_constructor):
         mock_socket = mock.Mock()
         mock_socket_constructor.return_value = mock_socket

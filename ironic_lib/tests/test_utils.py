@@ -195,7 +195,8 @@ grep foo
 
     @mock.patch.object(utils, 'LOG', autospec=True)
     def _test_execute_with_log_stdout(self, log_mock, log_stdout=None):
-        with mock.patch.object(processutils, 'execute') as execute_mock:
+        with mock.patch.object(
+                processutils, 'execute', autospec=True) as execute_mock:
             execute_mock.return_value = ('stdout', 'stderr')
             if log_stdout is not None:
                 utils.execute('foo', log_stdout=log_stdout)
