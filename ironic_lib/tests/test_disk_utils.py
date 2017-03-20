@@ -1058,7 +1058,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
 
     @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
-    @mock.patch.object(disk_utils.LOG, 'warning')
+    @mock.patch.object(disk_utils.LOG, 'warning', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
     @mock.patch.object(disk_utils, 'dd',
