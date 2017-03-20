@@ -34,9 +34,6 @@ import requests
 import six
 
 from ironic_lib.common.i18n import _
-from ironic_lib.common.i18n import _LE
-from ironic_lib.common.i18n import _LI
-from ironic_lib.common.i18n import _LW
 from ironic_lib import disk_partitioner
 from ironic_lib import exception
 from ironic_lib import utils
@@ -97,9 +94,9 @@ def list_partitions(device):
     for line in lines:
         match = _PARTED_PRINT_RE.match(line)
         if match is None:
-            LOG.warning(_LW("Partition information from parted for device "
-                            "%(device)s does not match "
-                            "expected format: %(line)s"),
+            LOG.warning("Partition information from parted for device "
+                        "%(device)s does not match "
+                        "expected format: %(line)s",
                         dict(device=device, line=line))
             continue
         # Cast int fields to ints (some are floats and we round them down)
@@ -370,8 +367,8 @@ def destroy_disk_metadata(dev, node_uuid):
                               run_as_root=True,
                               use_standard_locale=True)
 
-    LOG.info(_LI("Disk metadata on %(dev)s successfully destroyed for node "
-                 "%(node)s"), {'dev': dev, 'node': node_uuid})
+    LOG.info("Disk metadata on %(dev)s successfully destroyed for node "
+             "%(node)s", {'dev': dev, 'node': node_uuid})
 
 
 def _get_configdrive(configdrive, node_uuid, tempdir=None):
@@ -489,8 +486,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                                     boot_option=boot_option,
                                     boot_mode=boot_mode,
                                     disk_label=disk_label)
-        LOG.info(_LI("Successfully completed the disk device"
-                     " %(dev)s partitioning for node %(node)s"),
+        LOG.info("Successfully completed the disk device"
+                 " %(dev)s partitioning for node %(node)s",
                  {'dev': dev, "node": node_uuid})
 
         ephemeral_part = part_dict.get('ephemeral')
@@ -522,8 +519,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         if configdrive_part:
             # Copy the configdrive content to the configdrive partition
             dd(configdrive_file, configdrive_part)
-            LOG.info(_LI("Configdrive for node %(node)s successfully copied "
-                         "onto partition %(partition)s"),
+            LOG.info("Configdrive for node %(node)s successfully copied "
+                     "onto partition %(partition)s",
                      {'node': node_uuid, 'partition': configdrive_part})
 
     finally:
@@ -533,20 +530,20 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
             utils.unlink_without_raise(configdrive_file)
 
     populate_image(image_path, root_part)
-    LOG.info(_LI("Image for %(node)s successfully populated"),
+    LOG.info("Image for %(node)s successfully populated",
              {'node': node_uuid})
 
     if swap_part:
         utils.mkfs(fs='swap', path=swap_part, label='swap1')
-        LOG.info(_LI("Swap partition %(swap)s successfully formatted "
-                     "for node %(node)s"),
+        LOG.info("Swap partition %(swap)s successfully formatted "
+                 "for node %(node)s",
                  {'swap': swap_part, 'node': node_uuid})
 
     if ephemeral_part and not preserve_ephemeral:
         utils.mkfs(fs=ephemeral_format, path=ephemeral_part,
                    label="ephemeral0")
-        LOG.info(_LI("Ephemeral partition %(ephemeral)s successfully "
-                     "formatted for node %(node)s"),
+        LOG.info("Ephemeral partition %(ephemeral)s successfully "
+                 "formatted for node %(node)s",
                  {'ephemeral': ephemeral_part, 'node': node_uuid})
 
     uuids_to_return = {
@@ -561,7 +558,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
 
     except processutils.ProcessExecutionError:
         with excutils.save_and_reraise_exception():
-            LOG.error(_LE("Failed to detect %s"), part)
+            LOG.error("Failed to detect %s", part)
 
     return uuids_to_return
 
@@ -767,9 +764,9 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                 endlimit = '-0'
                 if _is_disk_larger_than_max_size(device, node_uuid):
                     # Need to create a small partition at 2TB limit
-                    LOG.warning(_LW("Disk size is larger than 2TB for "
-                                    "node %(node)s. Creating config drive "
-                                    "at the end of the disk %(disk)s."),
+                    LOG.warning("Disk size is larger than 2TB for "
+                                "node %(node)s. Creating config drive "
+                                "at the end of the disk %(disk)s.",
                                 {'node': node_uuid, 'disk': device})
                     startlimit = (MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR -
                                   MAX_CONFIG_DRIVE_SIZE_MB - 1)
@@ -801,8 +798,8 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                           '--exit-if-exists=%s' % config_drive_part)
 
         dd(confdrive_file, config_drive_part)
-        LOG.info(_LI("Configdrive for node %(node)s successfully "
-                     "copied onto partition %(part)s"),
+        LOG.info("Configdrive for node %(node)s successfully "
+                 "copied onto partition %(part)s",
                  {'node': node_uuid, 'part': config_drive_part})
 
     except (processutils.UnknownArgumentError,
