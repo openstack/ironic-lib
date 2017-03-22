@@ -34,9 +34,6 @@ import six
 from six.moves.urllib import parse
 
 from ironic_lib.common.i18n import _
-from ironic_lib.common.i18n import _LE
-from ironic_lib.common.i18n import _LI
-from ironic_lib.common.i18n import _LW
 from ironic_lib import exception
 
 utils_opts = [
@@ -135,12 +132,12 @@ def mkfs(fs, path, label=None):
         with excutils.save_and_reraise_exception() as ctx:
             if os.strerror(errno.ENOENT) in e.stderr:
                 ctx.reraise = False
-                LOG.exception(_LE('Failed to make file system. '
-                                  'File system %s is not supported.'), fs)
+                LOG.exception('Failed to make file system. '
+                              'File system %s is not supported.', fs)
                 raise exception.FileSystemNotSupported(fs=fs)
             else:
-                LOG.exception(_LE('Failed to create a file system '
-                                  'in %(path)s. Error: %(error)s'),
+                LOG.exception('Failed to create a file system '
+                              'in %(path)s. Error: %(error)s',
                               {'path': path, 'error': e})
 
 
@@ -151,7 +148,7 @@ def unlink_without_raise(path):
         if e.errno == errno.ENOENT:
             return
         else:
-            LOG.warning(_LW("Failed to unlink %(path)s, error: %(e)s"),
+            LOG.warning("Failed to unlink %(path)s, error: %(e)s",
                         {'path': path, 'e': e})
 
 
@@ -375,8 +372,8 @@ def match_root_device_hints(devices, root_device_hints):
                                                               hint)
                 except ValueError:
                     LOG.warning(
-                        _LW('The attribute "%(attr)s" of the device "%(dev)s" '
-                            'has an empty value. Skipping device.'),
+                        'The attribute "%(attr)s" of the device "%(dev)s" '
+                        'has an empty value. Skipping device.',
                         {'attr': hint, 'dev': device_name})
                     break
 
@@ -400,9 +397,9 @@ def match_root_device_hints(devices, root_device_hints):
                     device_value = strutils.bool_from_string(device_value,
                                                              strict=True)
                 except ValueError:
-                    LOG.warning(_LW('The attribute "%(attr)s" (with value '
-                                    '"%(value)s") of device "%(dev)s" is not '
-                                    'a valid Boolean. Skipping device.'),
+                    LOG.warning('The attribute "%(attr)s" (with value '
+                                '"%(value)s") of device "%(dev)s" is not '
+                                'a valid Boolean. Skipping device.',
                                 {'attr': hint, 'value': device_value,
                                  'dev': device_name})
                     break
@@ -413,8 +410,8 @@ def match_root_device_hints(devices, root_device_hints):
             if not specs_matcher.match(device_value, hint_value):
                 break
         else:
-            LOG.info(_LI('Device found! The device "%s" matches the root '
-                         'device hints'), device_name)
+            LOG.info('Device found! The device "%s" matches the root '
+                     'device hints', device_name)
             return dev
 
-    LOG.warning(_LW('No device found that matches the root device hints'))
+    LOG.warning('No device found that matches the root device hints')

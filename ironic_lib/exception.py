@@ -29,7 +29,6 @@ from oslo_utils import excutils
 import six
 
 from ironic_lib.common.i18n import _
-from ironic_lib.common.i18n import _LE
 
 
 LOG = logging.getLogger(__name__)
@@ -76,8 +75,8 @@ class IronicException(Exception):
                     # kwargs doesn't match a variable in the message
                     # log the issue and the kwargs
                     prs = ', '.join('%s=%s' % pair for pair in kwargs.items())
-                    LOG.exception(_LE('Exception in string format operation '
-                                      '(arguments %s)'), prs)
+                    LOG.exception('Exception in string format operation '
+                                  '(arguments %s)', prs)
                     if not CONF.ironic_lib.fatal_exception_format_errors:
                         # at least get the core message out if something
                         # happened

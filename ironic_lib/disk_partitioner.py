@@ -21,7 +21,6 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 
 from ironic_lib.common.i18n import _
-from ironic_lib.common.i18n import _LW
 from ironic_lib import exception
 from ironic_lib import utils
 
@@ -132,8 +131,8 @@ class DiskPartitioner(object):
                     pids_match = re.search(self._fuser_pids_re, out)
                     pids[0] = pids_match.group()
         except processutils.ProcessExecutionError as exc:
-            LOG.warning(_LW('Failed to check the device %(device)s with fuser:'
-                            ' %(err)s'), {'device': self._device, 'err': exc})
+            LOG.warning('Failed to check the device %(device)s with fuser:'
+                        ' %(err)s', {'device': self._device, 'err': exc})
 
     def commit(self):
         """Write to the disk."""

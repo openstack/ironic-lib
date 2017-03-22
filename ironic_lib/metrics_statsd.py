@@ -19,7 +19,6 @@ import socket
 from oslo_config import cfg
 from oslo_log import log
 
-from ironic_lib.common.i18n import _LW
 from ironic_lib import metrics
 
 statsd_opts = [
@@ -83,9 +82,8 @@ class StatsdMetricLogger(metrics.MetricLogger):
                 sock.settimeout(0.0)
                 sock.sendto(metric, self._target)
             except socket.error as e:
-                LOG.warning(_LW("Failed to send the metric value to "
-                                "host %(host)s port %(port)s. "
-                                "Error: %(error)s"),
+                LOG.warning("Failed to send the metric value to host "
+                            "%(host)s, port %(port)s. Error: %(error)s",
                             {'host': self._host, 'port': self._port,
                              'error': e})
 
