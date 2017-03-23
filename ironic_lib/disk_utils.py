@@ -789,13 +789,19 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             else:
                 config_drive_part = '%s%s' % (device, new_part.pop())
 
-            # NOTE(vdrok): the partition was created successfully, let's wait
-            # for it to appear in /dev.
+            LOG.debug('Waiting until udev event queue is empty')
+            utils.execute('udevadm', 'settle')
+
+            # NOTE(vsaienko): check that devise actually exists,
+            # it is not handled by udevadm when using ISCSI, for more info see:
+            # https://bugs.launchpad.net/ironic/+bug/1673731
+            # Do not use 'udevadm settle --exit-if-exist' here
             LOG.debug('Waiting for the config drive partition %(part)s '
                       'on node %(node)s to be ready for writing.',
                       {'part': config_drive_part, 'node': node_uuid})
-            utils.execute('udevadm', 'settle',
-                          '--exit-if-exists=%s' % config_drive_part)
+            utils.execute('test', '-e', config_drive_part,
+                          check_exit_code=[0], attempts=15,
+                          delay_on_retry=True)
 
         dd(confdrive_file, config_drive_part)
         LOG.info("Configdrive for node %(node)s successfully "

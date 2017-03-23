@@ -1047,9 +1047,11 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_execute.assert_has_calls([
             mock.call('sgdisk', '-n', '0:-64MB:0', self.dev,
                       run_as_root=True),
-            mock.call('udevadm', 'settle',
-                      '--exit-if-exists=%s' % expected_part),
+            mock.call('udevadm', 'settle'),
+            mock.call('test', '-e', expected_part, attempts=15,
+                      check_exit_code=[0], delay_on_retry=True)
         ])
+
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_fix_gpt.assert_called_with(self.dev, self.node_uuid)
@@ -1137,8 +1139,9 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                     '-0', run_as_root=True)
         mock_execute.assert_has_calls([
             parted_call,
-            mock.call('udevadm', 'settle',
-                      '--exit-if-exists=%s' % expected_part),
+            mock.call('udevadm', 'settle'),
+            mock.call('test', '-e', expected_part, attempts=15,
+                      check_exit_code=[0], delay_on_retry=True)
         ])
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
