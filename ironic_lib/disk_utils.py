@@ -66,6 +66,9 @@ LOG = logging.getLogger(__name__)
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
                               "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
 
+# Limit the memory address space to 1 GiB when running qemu-img
+QEMU_IMG_LIMITS = processutils.ProcessLimits(address_space=1 * units.Gi)
+
 
 def list_partitions(device):
     """Get partitions information from given device.
@@ -249,14 +252,15 @@ def qemu_img_info(path):
         return imageutils.QemuImgInfo()
 
     out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
-                             'qemu-img', 'info', path)
+                             'qemu-img', 'info', path,
+                             prlimit=QEMU_IMG_LIMITS)
     return imageutils.QemuImgInfo(out)
 
 
 def convert_image(source, dest, out_format, run_as_root=False):
     """Convert image to other format."""
     cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
-    utils.execute(*cmd, run_as_root=run_as_root)
+    utils.execute(*cmd, run_as_root=run_as_root, prlimit=QEMU_IMG_LIMITS)
 
 
 def populate_image(src, dst):
