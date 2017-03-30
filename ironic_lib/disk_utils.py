@@ -578,9 +578,10 @@ def _is_disk_larger_than_max_size(device, node_uuid):
     :returns: True if total disk size exceeds 2TB. Returns False otherwise.
     """
     try:
-        disksize_bytes = utils.execute('blockdev', '--getsize64', device,
-                                       use_standard_locale=True,
-                                       run_as_root=True)
+        disksize_bytes, err = utils.execute('blockdev', '--getsize64',
+                                            device,
+                                            use_standard_locale=True,
+                                            run_as_root=True)
     except (processutils.UnknownArgumentError,
             processutils.ProcessExecutionError, OSError) as e:
         msg = (_('Failed to get size of disk %(disk)s for node %(node)s. '
@@ -589,7 +590,7 @@ def _is_disk_larger_than_max_size(device, node_uuid):
         LOG.error(msg)
         raise exception.InstanceDeployFailure(msg)
 
-    disksize_mb = int(disksize_bytes[0].strip()) // 1024 // 1024
+    disksize_mb = int(disksize_bytes.strip()) // 1024 // 1024
 
     return disksize_mb > MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR
 
