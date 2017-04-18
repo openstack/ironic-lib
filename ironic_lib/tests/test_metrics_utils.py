@@ -41,7 +41,8 @@ class TestGetLogger(test_base.BaseTestCase):
         CONF.clear_override('backend', group='metrics')
 
     def test_nonexisting_backend(self):
-        CONF.set_override('backend', 'none', group='metrics')
+        CONF.set_override('backend', 'none', group='metrics',
+                          enforce_type=False)
 
         self.assertRaises(exception.InvalidMetricConfig,
                           metrics_utils.get_metrics_logger, 'foo')
