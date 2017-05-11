@@ -21,15 +21,15 @@ import os.path
 import mock
 from oslo_concurrency import processutils
 from oslo_config import cfg
-from oslotest import base as test_base
 
 from ironic_lib import exception
+from ironic_lib.tests import base
 from ironic_lib import utils
 
 CONF = cfg.CONF
 
 
-class BareMetalUtilsTestCase(test_base.BaseTestCase):
+class BareMetalUtilsTestCase(base.IronicLibTestCase):
 
     def test_unlink(self):
         with mock.patch.object(os, "unlink", autospec=True) as unlink_mock:
@@ -44,7 +44,9 @@ class BareMetalUtilsTestCase(test_base.BaseTestCase):
             unlink_mock.assert_called_once_with("/fake/path")
 
 
-class ExecuteTestCase(test_base.BaseTestCase):
+class ExecuteTestCase(base.IronicLibTestCase):
+    # Allow calls to utils.execute() and related functions
+    block_execute = False
 
     @mock.patch.object(processutils, 'execute', autospec=True)
     @mock.patch.object(os.environ, 'copy', return_value={}, autospec=True)
@@ -126,7 +128,7 @@ class ExecuteTestCase(test_base.BaseTestCase):
         self._test_execute_with_log_stdout(log_stdout=False)
 
 
-class MkfsTestCase(test_base.BaseTestCase):
+class MkfsTestCase(base.IronicLibTestCase):
 
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_mkfs(self, execute_mock):
@@ -177,7 +179,7 @@ class MkfsTestCase(test_base.BaseTestCase):
                           'ext4', '/my/block/dev', 'ext4-vol')
 
 
-class IsHttpUrlTestCase(test_base.BaseTestCase):
+class IsHttpUrlTestCase(base.IronicLibTestCase):
 
     def test_is_http_url(self):
         self.assertTrue(utils.is_http_url('http://127.0.0.1'))
@@ -188,7 +190,7 @@ class IsHttpUrlTestCase(test_base.BaseTestCase):
         self.assertFalse(utils.is_http_url('11111111'))
 
 
-class ParseRootDeviceTestCase(test_base.BaseTestCase):
+class ParseRootDeviceTestCase(base.IronicLibTestCase):
 
     def test_parse_root_device_hints_without_operators(self):
         root_device = {
@@ -391,7 +393,7 @@ class ParseRootDeviceTestCase(test_base.BaseTestCase):
             ValueError, utils._normalize_hint_expression, '', 'size')
 
 
-class MatchRootDeviceTestCase(test_base.BaseTestCase):
+class MatchRootDeviceTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(MatchRootDeviceTestCase, self).setUp()

@@ -16,9 +16,9 @@
 import socket
 
 import mock
-from oslotest import base as test_base
 
 from ironic_lib import metrics_statsd
+from ironic_lib.tests import base
 
 
 def connect(family=None, type=None, proto=None):
@@ -26,7 +26,7 @@ def connect(family=None, type=None, proto=None):
     pass
 
 
-class TestStatsdMetricLogger(test_base.BaseTestCase):
+class TestStatsdMetricLogger(base.IronicLibTestCase):
     def setUp(self):
         super(TestStatsdMetricLogger, self).setUp()
         self.ml = metrics_statsd.StatsdMetricLogger('prefix', '.', 'test-host',

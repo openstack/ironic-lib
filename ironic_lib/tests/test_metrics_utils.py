@@ -13,19 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslotest import base as test_base
-
 from oslo_config import cfg
 
 from ironic_lib import exception
 from ironic_lib import metrics as metricslib
 from ironic_lib import metrics_statsd
 from ironic_lib import metrics_utils
+from ironic_lib.tests import base
 
 CONF = cfg.CONF
 
 
-class TestGetLogger(test_base.BaseTestCase):
+class TestGetLogger(base.IronicLibTestCase):
     def setUp(self):
         super(TestGetLogger, self).setUp()
 
