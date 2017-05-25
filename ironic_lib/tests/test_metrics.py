@@ -16,9 +16,9 @@
 import types
 
 import mock
-from oslotest import base as test_base
 
 from ironic_lib import metrics as metricslib
+from ironic_lib.tests import base
 
 
 class MockedMetricLogger(metricslib.MetricLogger):
@@ -27,7 +27,7 @@ class MockedMetricLogger(metricslib.MetricLogger):
     _timer = mock.Mock(spec_set=types.FunctionType)
 
 
-class TestMetricLogger(test_base.BaseTestCase):
+class TestMetricLogger(base.IronicLibTestCase):
     def setUp(self):
         super(TestMetricLogger, self).setUp()
         self.ml = MockedMetricLogger('prefix', '.')

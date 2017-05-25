@@ -16,15 +16,15 @@
 import eventlet
 import mock
 
-from oslotest import base as test_base
 from testtools.matchers import HasLength
 
 from ironic_lib import disk_partitioner
 from ironic_lib import exception
+from ironic_lib.tests import base
 from ironic_lib import utils
 
 
-class DiskPartitionerTestCase(test_base.BaseTestCase):
+class DiskPartitionerTestCase(base.IronicLibTestCase):
 
     def test_add_partition(self):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')

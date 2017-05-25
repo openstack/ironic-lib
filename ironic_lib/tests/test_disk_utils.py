@@ -25,19 +25,19 @@ from oslo_config import cfg
 from oslo_serialization import base64
 from oslo_service import loopingcall
 from oslo_utils import imageutils
-from oslotest import base as test_base
 import requests
 
 from ironic_lib import disk_partitioner
 from ironic_lib import disk_utils
 from ironic_lib import exception
+from ironic_lib.tests import base
 from ironic_lib import utils
 
 CONF = cfg.CONF
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
-class ListPartitionsTestCase(test_base.BaseTestCase):
+class ListPartitionsTestCase(base.IronicLibTestCase):
 
     def test_correct(self, execute_mock):
         output = """
@@ -72,7 +72,7 @@ BYT;
 
 
 @mock.patch.object(disk_partitioner.DiskPartitioner, 'commit', lambda _: None)
-class WorkOnDiskTestCase(test_base.BaseTestCase):
+class WorkOnDiskTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(WorkOnDiskTestCase, self).setUp()
@@ -294,7 +294,7 @@ class WorkOnDiskTestCase(test_base.BaseTestCase):
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
-class MakePartitionsTestCase(test_base.BaseTestCase):
+class MakePartitionsTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(MakePartitionsTestCase, self).setUp()
@@ -443,7 +443,7 @@ class MakePartitionsTestCase(test_base.BaseTestCase):
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
-class DestroyMetaDataTestCase(test_base.BaseTestCase):
+class DestroyMetaDataTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(DestroyMetaDataTestCase, self).setUp()
@@ -485,7 +485,7 @@ class DestroyMetaDataTestCase(test_base.BaseTestCase):
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
-class GetDeviceBlockSizeTestCase(test_base.BaseTestCase):
+class GetDeviceBlockSizeTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(GetDeviceBlockSizeTestCase, self).setUp()
@@ -503,7 +503,7 @@ class GetDeviceBlockSizeTestCase(test_base.BaseTestCase):
 @mock.patch.object(disk_utils, 'dd', autospec=True)
 @mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
 @mock.patch.object(disk_utils, 'convert_image', autospec=True)
-class PopulateImageTestCase(test_base.BaseTestCase):
+class PopulateImageTestCase(base.IronicLibTestCase):
 
     def setUp(self):
         super(PopulateImageTestCase, self).setUp()
@@ -537,13 +537,16 @@ def _looping_call_done(*args, **kwargs):
 @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
 # NOTE(dtantsur): destroy_disk_metadata resets file size, disabling it
 @mock.patch.object(disk_utils, 'destroy_disk_metadata', lambda *_: None)
-class RealFilePartitioningTestCase(test_base.BaseTestCase):
+class RealFilePartitioningTestCase(base.IronicLibTestCase):
     """This test applies some real-world partitioning scenario to a file.
 
     This test covers the whole partitioning, mocking everything not possible
     on a file. That helps us assure, that we do all partitioning math properly
     and also conducts integration testing of DiskPartitioner.
     """
+
+    # Allow calls to utils.execute() and related functions
+    block_execute = False
 
     def setUp(self):
         super(RealFilePartitioningTestCase, self).setUp()
@@ -608,7 +611,7 @@ class RealFilePartitioningTestCase(test_base.BaseTestCase):
 
 @mock.patch.object(shutil, 'copyfileobj', autospec=True)
 @mock.patch.object(requests, 'get', autospec=True)
-class GetConfigdriveTestCase(test_base.BaseTestCase):
+class GetConfigdriveTestCase(base.IronicLibTestCase):
 
     @mock.patch.object(gzip, 'GzipFile', autospec=True)
     def test_get_configdrive(self, mock_gzip, mock_requests, mock_copy):
@@ -664,7 +667,7 @@ class GetConfigdriveTestCase(test_base.BaseTestCase):
 
 
 @mock.patch('time.sleep', lambda sec: None)
-class OtherFunctionTestCase(test_base.BaseTestCase):
+class OtherFunctionTestCase(base.IronicLibTestCase):
 
     @mock.patch.object(os, 'stat', autospec=True)
     @mock.patch.object(stat, 'S_ISBLK', autospec=True)
@@ -772,7 +775,7 @@ class OtherFunctionTestCase(test_base.BaseTestCase):
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
-class WholeDiskPartitionTestCases(test_base.BaseTestCase):
+class WholeDiskPartitionTestCases(base.IronicLibTestCase):
 
     def setUp(self):
         super(WholeDiskPartitionTestCases, self).setUp()
@@ -947,7 +950,7 @@ or continue with the current setting?
         self.assertEqual(1, mock_log.call_count)
 
 
-class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
+class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
 
     def setUp(self):
         super(WholeDiskConfigDriveTestCases, self).setUp()
