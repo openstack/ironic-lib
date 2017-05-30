@@ -367,6 +367,9 @@ def destroy_disk_metadata(dev, node_uuid):
                               run_as_root=True,
                               use_standard_locale=True)
 
+    utils.execute('sgdisk', '-Z', dev, run_as_root=True,
+                  use_standard_locale=True)
+
     LOG.info("Disk metadata on %(dev)s successfully destroyed for node "
              "%(node)s", {'dev': dev, 'node': node_uuid})
 

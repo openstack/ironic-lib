@@ -453,6 +453,9 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
     def test_destroy_disk_metadata(self, mock_exec):
         expected_calls = [mock.call('wipefs', '--force', '--all', 'fake-dev',
                                     run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('sgdisk', '-Z', 'fake-dev',
+                                    run_as_root=True,
                                     use_standard_locale=True)]
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_calls)
@@ -469,9 +472,25 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                           self.node_uuid)
         mock_exec.assert_has_calls(expected_call)
 
+    def test_destroy_disk_metadata_sgdisk_fail(self, mock_exec):
+        expected_calls = [mock.call('wipefs', '--force', '--all', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('sgdisk', '-Z', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True)]
+        mock_exec.side_effect = [(None, None),
+                                 processutils.ProcessExecutionError()]
+        self.assertRaises(processutils.ProcessExecutionError,
+                          disk_utils.destroy_disk_metadata,
+                          self.dev,
+                          self.node_uuid)
+        mock_exec.assert_has_calls(expected_calls)
+
     def test_destroy_disk_metadata_wipefs_not_support_force(self, mock_exec):
         mock_exec.side_effect = iter(
             [processutils.ProcessExecutionError(description='--force'),
+             (None, None),
              (None, None)])
 
         expected_call = [mock.call('wipefs', '--force', '--all', 'fake-dev',
