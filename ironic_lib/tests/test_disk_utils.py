@@ -421,6 +421,29 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         mock_exc.assert_has_calls([parted_call])
         self.assertEqual(expected_result, result)
 
+    def test_make_partitions_with_nvme_device(self, mock_exc):
+        self.ephemeral_mb = 2048
+        expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
+                           'mkpart', 'primary', 'linux-swap', '2049', '2561',
+                           'mkpart', 'primary', '', '2561', '3585']
+        self.dev = '/dev/nvmefake-9'
+        ep = '/dev/nvmefake-9p1'
+        swap = '/dev/nvmefake-9p2'
+        root = '/dev/nvmefake-9p3'
+        expected_result = {'ephemeral': ep,
+                           'swap': swap,
+                           'root': root}
+        cmd = self._get_parted_cmd(self.dev) + expected_mkpart
+        mock_exc.return_value = (None, None)
+        result = disk_utils.make_partitions(
+            self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
+            self.configdrive_mb, self.node_uuid)
+
+        parted_call = mock.call(*cmd, use_standard_locale=True,
+                                run_as_root=True, check_exit_code=[0])
+        mock_exc.assert_has_calls([parted_call])
+        self.assertEqual(expected_result, result)
+
     def test_make_partitions_with_local_device(self, mock_exc):
         self.ephemeral_mb = 2048
         expected_mkpart = ['mkpart', 'primary', '', '1', '2049',
@@ -1106,7 +1129,8 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
                                    mock_disk_exceeds, mock_dd,
                                    mock_unlink, mock_log, mock_execute,
                                    mock_count, disk_size_exceeds_max=False,
-                                   is_iscsi_device=False):
+                                   is_iscsi_device=False,
+                                   is_nvme_device=False):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1141,6 +1165,9 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
             self.dev = ('/dev/iqn.2008-10.org.openstack:%s.fake' %
                         self.node_uuid)
             expected_part = '%s-part4' % self.dev
+        elif is_nvme_device:
+            self.dev = '/dev/nvmefake'
+            expected_part = '%sp4' % self.dev
         else:
             expected_part = '/dev/fake4'
 
@@ -1175,11 +1202,23 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
 
     def test__create_partition_mbr_disk_under_2TB(self):
         self._test_create_partition_mbr(disk_size_exceeds_max=False,
-                                        is_iscsi_device=True)
+                                        is_iscsi_device=True,
+                                        is_nvme_device=False)
+
+    def test__create_partition_mbr_disk_under_2TB_nvme(self):
+        self._test_create_partition_mbr(disk_size_exceeds_max=False,
+                                        is_iscsi_device=False,
+                                        is_nvme_device=True)
 
     def test__create_partition_mbr_disk_exceeds_2TB(self):
         self._test_create_partition_mbr(disk_size_exceeds_max=True,
-                                        is_iscsi_device=False)
+                                        is_iscsi_device=False,
+                                        is_nvme_device=False)
+
+    def test__create_partition_mbr_disk_exceeds_2TB_nvme(self):
+        self._test_create_partition_mbr(disk_size_exceeds_max=True,
+                                        is_iscsi_device=False,
+                                        is_nvme_device=True)
 
     @mock.patch.object(disk_utils, 'count_mbr_partitions', autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
