@@ -524,9 +524,6 @@ class GetDeviceBlockSizeTestCase(base.IronicLibTestCase):
 @mock.patch.object(disk_utils, 'convert_image', autospec=True)
 class PopulateImageTestCase(base.IronicLibTestCase):
 
-    def setUp(self):
-        super(PopulateImageTestCase, self).setUp()
-
     def test_populate_raw_image(self, mock_cg, mock_qinfo, mock_dd):
         type(mock_qinfo.return_value).file_format = mock.PropertyMock(
             return_value='raw')
