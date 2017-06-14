@@ -40,12 +40,8 @@ class TestGetLogger(base.IronicLibTestCase):
         CONF.clear_override('backend', group='metrics')
 
     def test_nonexisting_backend(self):
-        CONF.set_override('backend', 'none', group='metrics',
-                          enforce_type=False)
-
         self.assertRaises(exception.InvalidMetricConfig,
-                          metrics_utils.get_metrics_logger, 'foo')
-        CONF.clear_override('backend', group='metrics')
+                          metrics_utils.get_metrics_logger, 'foo', 'test')
 
     def test_numeric_prefix(self):
         self.assertRaises(exception.InvalidMetricConfig,
