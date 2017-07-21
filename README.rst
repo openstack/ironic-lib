@@ -2,8 +2,8 @@
 Team and repository tags
 ========================
 
-.. image:: http://governance.openstack.org/badges/ironic-lib.svg
-    :target: http://governance.openstack.org/reference/tags/index.html
+.. image:: https://governance.openstack.org/tc/badges/ironic-lib.svg
+    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
 
@@ -15,7 +15,7 @@ Overview
 --------
 
 A common library to be used **exclusively** by projects under the `Ironic
-governance <http://governance.openstack.org/reference/projects/ironic.html>`_.
+governance <https://governance.openstack.org/tc/reference/projects/ironic.html>`_.
 
 Running Tests
 -------------

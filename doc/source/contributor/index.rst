@@ -8,7 +8,7 @@ Overview
 Ironic-lib is a library for use by projects under Bare Metal governance only.
 This documentation is intended for developer use only. If you are looking for
 documentation for deployers, please see the
-`ironic documentation <http://docs.openstack.org/ironic>`_.
+`ironic documentation <https://docs.openstack.org/ironic/latest/>`_.
 
 Metrics
 =======
