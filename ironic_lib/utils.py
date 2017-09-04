@@ -52,7 +52,7 @@ LOG = logging.getLogger(__name__)
 VALID_ROOT_DEVICE_HINTS = {
     'size': int, 'model': str, 'wwn': str, 'serial': str, 'vendor': str,
     'wwn_with_extension': str, 'wwn_vendor_extension': str, 'name': str,
-    'rotational': bool, 'hctl': str,
+    'rotational': bool, 'hctl': str, 'by_path': str,
 }
 
 
@@ -348,6 +348,8 @@ def match_root_device_hints(devices, root_device_hints):
                      (not rotational).
         :hctl: (String): The SCSI address: Host, channel, target and lun.
                          For example: '1:0:0:0'.
+        :by_path: (String): The alternative device name,
+                  e.g. /dev/disk/by-path/pci-0000:00
 
     :param root_device_hints: A dictionary with the root device hints.
     :raises: ValueError, if some information is invalid.

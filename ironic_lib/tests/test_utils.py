@@ -198,7 +198,7 @@ class ParseRootDeviceTestCase(base.IronicLibTestCase):
             'serial': 'foo-serial', 'vendor': 'foo VENDOR with space',
             'name': '/dev/sda', 'wwn_with_extension': '123456111',
             'wwn_vendor_extension': '111', 'rotational': True,
-            'hctl': '1:0:0:0'}
+            'hctl': '1:0:0:0', 'by_path': '/dev/disk/by-path/1:0:0:0'}
         result = utils.parse_root_device_hints(root_device)
         expected = {
             'wwn': 's== 123456', 'model': 's== foo%20model',
@@ -206,7 +206,8 @@ class ParseRootDeviceTestCase(base.IronicLibTestCase):
             'vendor': 's== foo%20vendor%20with%20space',
             'name': 's== /dev/sda', 'wwn_with_extension': 's== 123456111',
             'wwn_vendor_extension': 's== 111', 'rotational': True,
-            'hctl': 's== 1%3A0%3A0%3A0'}
+            'hctl': 's== 1%3A0%3A0%3A0',
+            'by_path': 's== /dev/disk/by-path/1%3A0%3A0%3A0'}
         self.assertEqual(expected, result)
 
     def test_parse_root_device_hints_with_operators(self):
@@ -216,13 +217,14 @@ class ParseRootDeviceTestCase(base.IronicLibTestCase):
             'name': '<or> /dev/sda <or> /dev/sdb',
             'wwn_with_extension': 's!= 123456111',
             'wwn_vendor_extension': 's== 111', 'rotational': True,
-            'hctl': 's== 1:0:0:0'}
+            'hctl': 's== 1:0:0:0', 'by_path': 's== /dev/disk/by-path/1:0:0:0'}
 
         # Validate strings being normalized
         expected = copy.deepcopy(root_device)
         expected['model'] = 's== foo%20model'
         expected['vendor'] = 's== foo%20vendor%20with%20space'
         expected['hctl'] = 's== 1%3A0%3A0%3A0'
+        expected['by_path'] = 's== /dev/disk/by-path/1%3A0%3A0%3A0'
 
         result = utils.parse_root_device_hints(root_device)
         # The hints already contain the operators, make sure we keep it
@@ -306,6 +308,10 @@ class ParseRootDeviceTestCase(base.IronicLibTestCase):
     def test_parse_root_device_hints_invalid_hctl(self):
         self.assertRaises(ValueError, utils.parse_root_device_hints,
                           {'hctl': 123})
+
+    def test_parse_root_device_hints_invalid_by_path(self):
+        self.assertRaises(ValueError, utils.parse_root_device_hints,
+                          {'by_path': 123})
 
     def test_parse_root_device_hints_non_existent_hint(self):
         self.assertRaises(ValueError, utils.parse_root_device_hints,
