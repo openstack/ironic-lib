@@ -99,8 +99,8 @@ def execute(*cmd, **kwargs):
     LOG.debug('Execution completed, command line is "%s"',
               ' '.join(map(str, cmd)))
     if log_stdout:
-        LOG.debug('Command stdout is: "%s"' % result[0])
-    LOG.debug('Command stderr is: "%s"' % result[1])
+        LOG.debug('Command stdout is: "%s"', result[0])
+    LOG.debug('Command stderr is: "%s"', result[1])
     return result
 
 
