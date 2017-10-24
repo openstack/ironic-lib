@@ -1,0 +1,27 @@
+- job:
+    name: ironic-lib-tempest-partition-agent_ipmitool
+    parent: legacy-ironic-dsvm-base
+    run: playbooks/legacy/ironic-lib-tempest-partition-agent_ipmitool/run.yaml
+    post-run: playbooks/legacy/ironic-lib-tempest-partition-agent_ipmitool/post.yaml
+    timeout: 5400
+
+- job:
+    name: ironic-lib-tempest-partition-pxe_ipmitool
+    parent: legacy-ironic-dsvm-base
+    run: playbooks/legacy/ironic-lib-tempest-partition-pxe_ipmitool/run.yaml
+    post-run: playbooks/legacy/ironic-lib-tempest-partition-pxe_ipmitool/post.yaml
+    timeout: 5400
+
+- job:
+    name: ironic-lib-tempest-wholedisk-agent_ipmitool
+    parent: legacy-ironic-dsvm-base
+    run: playbooks/legacy/ironic-lib-tempest-wholedisk-agent_ipmitool/run.yaml
+    post-run: playbooks/legacy/ironic-lib-tempest-wholedisk-agent_ipmitool/post.yaml
+    timeout: 5400
+
+- job:
+    name: ironic-lib-tempest-wholedisk-pxe_ipmitool
+    parent: legacy-ironic-dsvm-base
+    run: playbooks/legacy/ironic-lib-tempest-wholedisk-pxe_ipmitool/run.yaml
+    post-run: playbooks/legacy/ironic-lib-tempest-wholedisk-pxe_ipmitool/post.yaml
+    timeout: 5400
