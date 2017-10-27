@@ -2,7 +2,6 @@
     name: openstack/ironic-lib
     check:
       jobs:
-        - openstack-tox-cover
         - ironic-lib-tempest-wholedisk-agent_ipmitool:
             irrelevant-files:
               - ^(test-|)requirements.txt$
@@ -93,6 +92,3 @@
               - ^setup.cfg$
               - ^tools/.*$
               - ^tox.ini$
-    post:
-      jobs:
-        - openstack-tox-cover
