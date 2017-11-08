@@ -2,93 +2,13 @@
     name: openstack/ironic-lib
     check:
       jobs:
-        - ironic-lib-tempest-wholedisk-agent_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-wholedisk-pxe_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-partition-agent_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-partition-pxe_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
+        - ironic-lib-tempest-partition-agent_ipmitool
+        - ironic-lib-tempest-partition-pxe_ipmitool
+        - ironic-lib-tempest-wholedisk-agent_ipmitool
+        - ironic-lib-tempest-wholedisk-pxe_ipmitool
     gate:
       jobs:
-        - ironic-lib-tempest-wholedisk-agent_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-partition-agent_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-wholedisk-pxe_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
-        - ironic-lib-tempest-partition-pxe_ipmitool:
-            irrelevant-files:
-              - ^(test-|)requirements.txt$
-              - ^.*\.rst$
-              - ^api-ref/.*$
-              - ^doc/.*$
-              - ^ironic_lib/tests/.*$
-              - ^releasenotes/.*$
-              - ^setup.cfg$
-              - ^tools/.*$
-              - ^tox.ini$
+        - ironic-lib-tempest-partition-agent_ipmitool
+        - ironic-lib-tempest-partition-pxe_ipmitool
+        - ironic-lib-tempest-wholedisk-agent_ipmitool
+        - ironic-lib-tempest-wholedisk-pxe_ipmitool
