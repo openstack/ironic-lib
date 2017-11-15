@@ -140,6 +140,7 @@ def get_disk_identifier(dev):
     http://www.syslinux.org/wiki/index.php/Comboot/chain.c32#mbr:
 
     :param dev: Path for the already populated disk device.
+    :raises OSError: When the hexdump binary is unavailable.
     :returns: The Disk Identifier.
     """
     disk_identifier = utils.execute('hexdump', '-s', '440', '-n', '4',
