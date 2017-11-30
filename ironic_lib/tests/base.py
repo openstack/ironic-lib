@@ -17,7 +17,6 @@
 
 import subprocess
 
-import mock
 from oslo_concurrency import processutils
 from oslotest import base as test_base
 
@@ -31,29 +30,57 @@ class IronicLibTestCase(test_base.BaseTestCase):
     processutils.execute() and similar functions.
     """
 
+    # By default block execution of utils.execute() and related functions.
     block_execute = True
 
     def setUp(self):
         super(IronicLibTestCase, self).setUp()
-        """Add a blanket ban on running external processes via utils.execute().
 
-        `self` will create a property called _exec_patch which is the Mock that
-        replaces utils.execute.
-
-        If the mock is called, an exception is raised to warn the tester.
-        """
-        # NOTE(bigjools): Not using a decorator on tests because I don't
-        # want to force every test method to accept a new arg. Instead, they
-        # can override or examine this self._exec_patch Mock as needed.
+        # Ban running external processes via 'execute' like functions. If the
+        # patched function is called, an exception is raised to warn the
+        # tester.
         if self.block_execute:
-            self._exec_patch = mock.Mock()
-            self._exec_patch.side_effect = Exception(
-                "Don't call ironic_lib.utils.execute() / "
-                "processutils.execute() or similar functions in tests!")
+            # NOTE(jlvillal): Intentionally not using mock as if you mock a
+            # mock it causes things to not work correctly. As doing an
+            # autospec=True causes strangeness. By using a simple function we
+            # can then mock it without issue.
+            self.patch(processutils, 'execute', do_not_call)
+            self.patch(subprocess, 'call', do_not_call)
+            self.patch(subprocess, 'check_call', do_not_call)
+            self.patch(subprocess, 'check_output', do_not_call)
+            self.patch(utils, 'execute', do_not_call)
 
-            self.patch(processutils, 'execute', self._exec_patch)
-            self.patch(subprocess, 'Popen', self._exec_patch)
-            self.patch(subprocess, 'call', self._exec_patch)
-            self.patch(subprocess, 'check_call', self._exec_patch)
-            self.patch(subprocess, 'check_output', self._exec_patch)
-            self.patch(utils, 'execute', self._exec_patch)
+            # subprocess.Popen is a class
+            self.patch(subprocess, 'Popen', DoNotCallPopen)
+
+
+def do_not_call(*args, **kwargs):
+    """Helper function to raise an exception if it is called"""
+    raise Exception(
+        "Don't call ironic_lib.utils.execute() / "
+        "processutils.execute() or similar functions in tests!")
+
+
+class DoNotCallPopen(object):
+    """Helper class to mimic subprocess.popen()
+
+    It's job is to raise an exception if it is called. We create stub functions
+    so mocks that use autospec=True will work.
+    """
+    def __init__(self, *args, **kwargs):
+        do_not_call(*args, **kwargs)
+
+    def communicate(input=None):
+        pass
+
+    def kill():
+        pass
+
+    def poll():
+        pass
+
+    def terminate():
+        pass
+
+    def wait():
+        pass
