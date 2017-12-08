@@ -18,7 +18,6 @@
 import subprocess
 
 import mock
-
 from oslo_concurrency import processutils
 from oslotest import base as test_base
 

@@ -15,7 +15,6 @@
 
 import eventlet
 import mock
-
 from testtools.matchers import HasLength
 
 from ironic_lib import disk_partitioner
