@@ -81,7 +81,8 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'mkpart', 'fake-type', 'fake-fs-type', '3', '4',
             'set', '3', 'bios_grub', 'on')
         mock_utils_exc.assert_called_once_with(
-            'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
+            'fuser', '/dev/fake', run_as_root=True,
+            check_exit_code=[0, 1])
 
     @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
@@ -98,6 +99,9 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
+        # TODO(TheJulia): fuser man page indicates only pids are returned via
+        # stdout. Meaning tests that put the device on stdout need to be
+        # corrected.
         fuser_outputs = iter([("/dev/fake: 10000 10001", None), (None, None)])
 
         with mock.patch.object(dp, 'get_partitions', autospec=True) as mock_gp:
@@ -111,7 +115,8 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'mkpart', 'fake-type', 'fake-fs-type', '2', '3',
             'set', '2', 'boot', 'on')
         mock_utils_exc.assert_called_with(
-            'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
+            'fuser', '/dev/fake', run_as_root=True,
+            check_exit_code=[0, 1])
         self.assertEqual(2, mock_utils_exc.call_count)
 
     @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
@@ -141,7 +146,8 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'mkpart', 'fake-type', 'fake-fs-type', '2', '3',
             'set', '2', 'boot', 'on')
         mock_utils_exc.assert_called_with(
-            'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
+            'fuser', '/dev/fake', run_as_root=True,
+            check_exit_code=[0, 1])
         self.assertEqual(20, mock_utils_exc.call_count)
 
     # Mock the eventlet.greenthread.sleep for the looping_call
@@ -173,5 +179,6 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'mkpart', 'fake-type', 'fake-fs-type', '2', '3',
             'set', '2', 'boot', 'on')
         mock_utils_exc.assert_called_with(
-            'fuser', '/dev/fake', run_as_root=True, check_exit_code=[0, 1])
+            'fuser', '/dev/fake', run_as_root=True,
+            check_exit_code=[0, 1])
         self.assertEqual(20, mock_utils_exc.call_count)

@@ -378,6 +378,14 @@ def destroy_disk_metadata(dev, node_uuid):
     utils.execute('sgdisk', '-Z', dev, run_as_root=True,
                   use_standard_locale=True)
 
+    try:
+        utils.wait_for_disk_to_become_available(dev)
+    except exception.IronicException as e:
+        raise exception.InstanceDeployFailure(
+            _('Destroying metadata failed on device %(device)s. '
+              'Error: %(error)s')
+            % {'device': dev, 'error': e})
+
     LOG.info("Disk metadata on %(dev)s successfully destroyed for node "
              "%(node)s", {'dev': dev, 'node': node_uuid})
 

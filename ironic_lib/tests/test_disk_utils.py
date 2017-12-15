@@ -23,7 +23,6 @@ import mock
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_serialization import base64
-from oslo_service import loopingcall
 from oslo_utils import imageutils
 import requests
 
@@ -465,7 +464,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         self.assertEqual(expected_result, result)
 
 
-@mock.patch.object(utils, 'execute', autospec=True)
+@mock.patch.object(utils, 'execute', autospec=True, return_value=('', ''))
 class DestroyMetaDataTestCase(base.IronicLibTestCase):
 
     def setUp(self):
@@ -479,7 +478,10 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                                     use_standard_locale=True),
                           mock.call('sgdisk', '-Z', 'fake-dev',
                                     run_as_root=True,
-                                    use_standard_locale=True)]
+                                    use_standard_locale=True),
+                          mock.call('fuser', self.dev,
+                                    check_exit_code=[0, 1],
+                                    run_as_root=True)]
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_calls)
 
@@ -514,7 +516,8 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
         mock_exec.side_effect = iter(
             [processutils.ProcessExecutionError(description='--force'),
              (None, None),
-             (None, None)])
+             (None, None),
+             ('', '')])
 
         expected_call = [mock.call('wipefs', '--force', '--all', 'fake-dev',
                                    run_as_root=True,
@@ -562,13 +565,7 @@ class PopulateImageTestCase(base.IronicLibTestCase):
         self.assertFalse(mock_dd.called)
 
 
-def _looping_call_done(*args, **kwargs):
-    raise loopingcall.LoopingCallDone()
-
-
-@mock.patch.object(disk_partitioner.DiskPartitioner,
-                   '_wait_for_disk_to_become_available',
-                   _looping_call_done)
+@mock.patch.object(utils, 'wait_for_disk_to_become_available', lambda *_: None)
 @mock.patch.object(disk_utils, 'is_block_device', lambda d: True)
 @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
 @mock.patch.object(disk_utils, 'dd', lambda *_: None)
