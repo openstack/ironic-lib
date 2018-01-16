@@ -290,7 +290,8 @@ def is_block_device(dev):
 
 def dd(src, dst):
     """Execute dd from src to dst."""
-    utils.dd(src, dst, 'bs=%s' % CONF.disk_utils.dd_block_size, 'oflag=direct')
+    utils.dd(src, dst, 'bs=%s' % CONF.disk_utils.dd_block_size, 'oflag=direct',
+             'conv=sparse')
 
 
 def qemu_img_info(path):
