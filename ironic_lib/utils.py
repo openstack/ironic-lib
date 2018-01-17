@@ -450,6 +450,13 @@ def wait_for_disk_to_become_available(device):
         if retries[0] > max_retries:
             raise loopingcall.LoopingCallDone()
 
+        # There are 'psmisc' and 'busybox' versions of the 'fuser' program. The
+        # 'fuser' programs differ in how they output data to stderr.  The
+        # busybox version does not output the filename to stderr, while the
+        # standard 'psmisc' version does output the filename to stderr.  How
+        # they output to stdout is almost identical in that only the PIDs are
+        # output to stdout, with the 'psmisc' version adding a leading space
+        # character to the list of PIDs.
         try:
             # NOTE(ifarkas): fuser returns a non-zero return code if none of
             #                the specified files is accessed.
@@ -466,12 +473,14 @@ def wait_for_disk_to_become_available(device):
             out, err = execute('fuser', device, check_exit_code=[0, 1],
                                run_as_root=True)
 
-            if err:
-                stderr[0] = err
-            if out:
-                pids[0] = fuser_pids_re.findall(out)
             if not out and not err:
                 raise loopingcall.LoopingCallDone()
+
+            stderr[0] = err
+            # NOTE: findall() returns a list of matches, or an empty list if no
+            # matches
+            pids[0] = fuser_pids_re.findall(out)
+
         except processutils.ProcessExecutionError as exc:
             LOG.warning('Failed to check the device %(device)s with fuser:'
                         ' %(err)s', {'device': device, 'err': exc})

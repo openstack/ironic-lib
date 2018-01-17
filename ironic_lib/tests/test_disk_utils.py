@@ -315,7 +315,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
 
     def _test_make_partitions(self, mock_exc, boot_option, boot_mode='bios',
                               disk_label=None):
-        mock_exc.return_value = (None, None)
+        mock_exc.return_value = ('', '')
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
                                    self.ephemeral_mb, self.configdrive_mb,
                                    self.node_uuid, boot_option=boot_option,
@@ -386,7 +386,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                            'mkpart', 'primary', '', '2561', '3585']
         self.dev = 'fake-dev'
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
+        mock_exc.return_value = ('', '')
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
                                    self.ephemeral_mb, self.configdrive_mb,
                                    self.node_uuid)
@@ -410,7 +410,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                            'swap': swap,
                            'root': root}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
+        mock_exc.return_value = ('', '')
         result = disk_utils.make_partitions(
             self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
             self.configdrive_mb, self.node_uuid)
@@ -433,7 +433,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                            'swap': swap,
                            'root': root}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
+        mock_exc.return_value = ('', '')
         result = disk_utils.make_partitions(
             self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
             self.configdrive_mb, self.node_uuid)
@@ -453,7 +453,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                            'swap': 'fake-dev2',
                            'root': 'fake-dev3'}
         cmd = self._get_parted_cmd(self.dev) + expected_mkpart
-        mock_exc.return_value = (None, None)
+        mock_exc.return_value = ('', '')
         result = disk_utils.make_partitions(
             self.dev, self.root_mb, self.swap_mb, self.ephemeral_mb,
             self.configdrive_mb, self.node_uuid)
