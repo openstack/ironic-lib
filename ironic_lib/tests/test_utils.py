@@ -463,3 +463,79 @@ class MatchRootDeviceTestCase(base.IronicLibTestCase):
         dev = utils.match_root_device_hints(empty_dev, {'model': 'foo'})
         self.assertIsNone(dev)
         self.assertTrue(mock_warn.called)
+
+
+class WaitForDisk(base.IronicLibTestCase):
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available(self, mock_exc):
+        mock_exc.return_value = ('', '')
+        utils.wait_for_disk_to_become_available('fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(1, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True,
+                       side_effect=processutils.ProcessExecutionError(
+                           stderr='fake'))
+    def test_wait_for_disk_to_become_available_no_fuser(self, mock_exc):
+        CONF.disk_partitioner.check_device_max_retries = 2
+        self.assertRaises(exception.IronicException,
+                          utils.wait_for_disk_to_become_available,
+                          'fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available_device_in_use(self, mock_exc):
+        # NOTE(TheJulia): Looks like fuser returns the actual list of pids
+        # in the stdout output, where as all other text is returned in
+        # stderr.
+        CONF.disk_partitioner.check_device_interval = .01
+        CONF.disk_partitioner.check_device_max_retries = 2
+
+        mock_exc.side_effect = [(' 1234   ', 'fake-dev: '),
+                                (' 15503  3919 15510 15511', 'fake-dev:')]
+        expected_error = ('Processes with the following PIDs are '
+                          'holding device fake-dev: 15503, 3919, 15510, '
+                          '15511. Timed out waiting for completion.')
+        self.assertRaisesRegex(
+            exception.IronicException,
+            expected_error,
+            utils.wait_for_disk_to_become_available,
+            'fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available_no_device(self, mock_exc):
+        # NOTE(TheJulia): Looks like fuser returns the actual list of pids
+        # in the stdout output, where as all other text is returned in
+        # stderr.
+        CONF.disk_partitioner.check_device_interval = .01
+        CONF.disk_partitioner.check_device_max_retries = 2
+
+        mock_exc.return_value = ('', 'Specified filename /dev/fake '
+                                     'does not exist.')
+        expected_error = ('Fuser exited with "Specified filename '
+                          '/dev/fake does not exist." while checking '
+                          'locks for device fake-dev. Timed out waiting '
+                          'for completion.')
+        self.assertRaisesRegex(
+            exception.IronicException,
+            expected_error,
+            utils.wait_for_disk_to_become_available,
+            'fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])

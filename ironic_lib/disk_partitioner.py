@@ -13,12 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import re
-
-from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_service import loopingcall
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -67,7 +63,6 @@ class DiskPartitioner(object):
         self._disk_label = disk_label
         self._alignment = alignment
         self._partitions = []
-        self._fuser_pids_re = re.compile(r'((\d)+\s*)+')
 
     def _exec(self, *args):
         # NOTE(lucasagomes): utils.execute() is already a wrapper on top
@@ -110,30 +105,6 @@ class DiskPartitioner(object):
         """
         return enumerate(self._partitions, 1)
 
-    def _wait_for_disk_to_become_available(self, retries, max_retries, pids,
-                                           stderr):
-        retries[0] += 1
-        if retries[0] > max_retries:
-            raise loopingcall.LoopingCallDone()
-
-        try:
-            # NOTE(ifarkas): fuser returns a non-zero return code if none of
-            #                the specified files is accessed
-            out, err = utils.execute('fuser', self._device,
-                                     check_exit_code=[0, 1], run_as_root=True)
-
-            if not out and not err:
-                raise loopingcall.LoopingCallDone()
-            else:
-                if err:
-                    stderr[0] = err
-                if out:
-                    pids_match = re.search(self._fuser_pids_re, out)
-                    pids[0] = pids_match.group()
-        except processutils.ProcessExecutionError as exc:
-            LOG.warning('Failed to check the device %(device)s with fuser:'
-                        ' %(err)s', {'device': self._device, 'err': exc})
-
     def commit(self):
         """Write to the disk."""
         LOG.debug("Committing partitions to disk.")
@@ -151,30 +122,13 @@ class DiskPartitioner(object):
 
         self._exec(*cmd_args)
 
-        retries = [0]
-        pids = ['']
-        fuser_err = ['']
-        interval = CONF.disk_partitioner.check_device_interval
-        max_retries = CONF.disk_partitioner.check_device_max_retries
-
-        timer = loopingcall.FixedIntervalLoopingCall(
-            self._wait_for_disk_to_become_available,
-            retries, max_retries, pids, fuser_err)
-        timer.start(interval=interval).wait()
-
-        if retries[0] > max_retries:
-            if pids[0]:
-                raise exception.InstanceDeployFailure(
-                    _('Disk partitioning failed on device %(device)s. '
-                      'Processes with the following PIDs are holding it: '
-                      '%(pids)s. Time out waiting for completion.')
-                    % {'device': self._device, 'pids': pids[0]})
-            else:
-                raise exception.InstanceDeployFailure(
-                    _('Disk partitioning failed on device %(device)s. Fuser '
-                      'exited with "%(fuser_err)s". Time out waiting for '
-                      'completion.')
-                    % {'device': self._device, 'fuser_err': fuser_err[0]})
+        try:
+            utils.wait_for_disk_to_become_available(self._device)
+        except exception.IronicException as e:
+            raise exception.InstanceDeployFailure(
+                _('Disk partitioning failed on device %(device)s. '
+                  'Error: %(error)s')
+                % {'device': self._device, 'error': e})
 
 
 def list_opts():
