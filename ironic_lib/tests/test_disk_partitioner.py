@@ -70,7 +70,7 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                            'size': 1})]
         with mock.patch.object(dp, 'get_partitions', autospec=True) as mock_gp:
             mock_gp.return_value = fake_parts
-            mock_utils_exc.return_value = (None, None)
+            mock_utils_exc.return_value = ('', '')
             dp.commit()
 
         mock_disk_partitioner_exec.assert_called_once_with(
@@ -99,10 +99,8 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
-        # TODO(TheJulia): fuser man page indicates only pids are returned via
-        # stdout. Meaning tests that put the device on stdout need to be
-        # corrected.
-        fuser_outputs = iter([("/dev/fake: 10000 10001", None), (None, None)])
+        # Test as if the 'psmisc' version of 'fuser' which has stderr output
+        fuser_outputs = iter([(" 10000 10001", '/dev/fake:\n'), ('', '')])
 
         with mock.patch.object(dp, 'get_partitions', autospec=True) as mock_gp:
             mock_gp.return_value = fake_parts
@@ -137,7 +135,9 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
 
         with mock.patch.object(dp, 'get_partitions', autospec=True) as mock_gp:
             mock_gp.return_value = fake_parts
-            mock_utils_exc.return_value = ("/dev/fake: 10000 10001", None)
+            # Test as if the 'busybox' version of 'fuser' which does not have
+            # stderr output
+            mock_utils_exc.return_value = ("10000 10001", '')
             self.assertRaises(exception.InstanceDeployFailure, dp.commit)
 
         mock_disk_partitioner_exec.assert_called_once_with(
@@ -169,8 +169,8 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
 
         with mock.patch.object(dp, 'get_partitions', autospec=True) as mock_gp:
             mock_gp.return_value = fake_parts
-            mock_utils_exc.return_value = (None, "Specified filename /dev/fake"
-                                                 " does not exist.")
+            mock_utils_exc.return_value = ('', "Specified filename /dev/fake"
+                                               " does not exist.")
             self.assertRaises(exception.InstanceDeployFailure, dp.commit)
 
         mock_disk_partitioner_exec.assert_called_once_with(

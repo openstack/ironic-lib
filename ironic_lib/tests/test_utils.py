@@ -481,6 +481,7 @@ class WaitForDisk(base.IronicLibTestCase):
                        side_effect=processutils.ProcessExecutionError(
                            stderr='fake'))
     def test_wait_for_disk_to_become_available_no_fuser(self, mock_exc):
+        CONF.disk_partitioner.check_device_interval = .01
         CONF.disk_partitioner.check_device_max_retries = 2
         self.assertRaises(exception.IronicException,
                           utils.wait_for_disk_to_become_available,
@@ -492,15 +493,47 @@ class WaitForDisk(base.IronicLibTestCase):
         mock_exc.assert_has_calls([fuser_call, fuser_call])
 
     @mock.patch.object(utils, 'execute', autospec=True)
-    def test_wait_for_disk_to_become_available_device_in_use(self, mock_exc):
+    def test_wait_for_disk_to_become_available_device_in_use_psmisc(
+            self, mock_exc):
+        # Test that the device is not available. This version has the 'psmisc'
+        # version of 'fuser' values for stdout and stderr.
         # NOTE(TheJulia): Looks like fuser returns the actual list of pids
         # in the stdout output, where as all other text is returned in
         # stderr.
         CONF.disk_partitioner.check_device_interval = .01
         CONF.disk_partitioner.check_device_max_retries = 2
-
+        # The 'psmisc' version has a leading space character in stdout. The
+        # filename is output to stderr
         mock_exc.side_effect = [(' 1234   ', 'fake-dev: '),
                                 (' 15503  3919 15510 15511', 'fake-dev:')]
+        expected_error = ('Processes with the following PIDs are '
+                          'holding device fake-dev: 15503, 3919, 15510, '
+                          '15511. Timed out waiting for completion.')
+        self.assertRaisesRegex(
+            exception.IronicException,
+            expected_error,
+            utils.wait_for_disk_to_become_available,
+            'fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available_device_in_use_busybox(
+            self, mock_exc):
+        # Test that the device is not available. This version has the 'busybox'
+        # version of 'fuser' values for stdout and stderr.
+        # NOTE(TheJulia): Looks like fuser returns the actual list of pids
+        # in the stdout output, where as all other text is returned in
+        # stderr.
+        CONF.disk_partitioner.check_device_interval = .01
+        CONF.disk_partitioner.check_device_max_retries = 2
+        # The 'busybox' version does not have a leading space character in
+        # stdout. Also nothing is output to stderr.
+        mock_exc.side_effect = [('1234', ''),
+                                ('15503  3919 15510 15511', '')]
         expected_error = ('Processes with the following PIDs are '
                           'holding device fake-dev: 15503, 3919, 15510, '
                           '15511. Timed out waiting for completion.')
@@ -534,6 +567,44 @@ class WaitForDisk(base.IronicLibTestCase):
             expected_error,
             utils.wait_for_disk_to_become_available,
             'fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available_dev_becomes_avail_psmisc(
+            self, mock_exc):
+        # Test that initially device is not available but then becomes
+        # available. This version has the 'psmisc' version of 'fuser' values
+        # for stdout and stderr.
+        CONF.disk_partitioner.check_device_interval = .01
+        CONF.disk_partitioner.check_device_max_retries = 2
+        # The 'psmisc' version has a leading space character in stdout. The
+        # filename is output to stderr
+        mock_exc.side_effect = [(' 1234   ', 'fake-dev: '),
+                                ('', '')]
+        utils.wait_for_disk_to_become_available('fake-dev')
+        fuser_cmd = ['fuser', 'fake-dev']
+        fuser_call = mock.call(*fuser_cmd, run_as_root=True,
+                               check_exit_code=[0, 1])
+        self.assertEqual(2, mock_exc.call_count)
+        mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_wait_for_disk_to_become_available_dev_becomes_avail_busybox(
+            self, mock_exc):
+        # Test that initially device is not available but then becomes
+        # available. This version has the 'busybox' version of 'fuser' values
+        # for stdout and stderr.
+        CONF.disk_partitioner.check_device_interval = .01
+        CONF.disk_partitioner.check_device_max_retries = 2
+        # The 'busybox' version does not have a leading space character in
+        # stdout. Also nothing is output to stderr.
+        mock_exc.side_effect = [('1234 5895', ''),
+                                ('', '')]
+        utils.wait_for_disk_to_become_available('fake-dev')
         fuser_cmd = ['fuser', 'fake-dev']
         fuser_call = mock.call(*fuser_cmd, run_as_root=True,
                                check_exit_code=[0, 1])
