@@ -70,17 +70,17 @@ class DoNotCallPopen(object):
     def __init__(self, *args, **kwargs):
         do_not_call(*args, **kwargs)
 
-    def communicate(input=None):
+    def communicate(self, input=None):
         pass
 
-    def kill():
+    def kill(self):
         pass
 
-    def poll():
+    def poll(self):
         pass
 
-    def terminate():
+    def terminate(self):
         pass
 
-    def wait():
+    def wait(self):
         pass
