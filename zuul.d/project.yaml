@@ -1,5 +1,4 @@
 - project:
-    name: openstack/ironic-lib
     check:
       jobs:
         - ironic-lib-tempest-partition-agent_ipmitool
