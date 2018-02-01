@@ -16,15 +16,61 @@
 import types
 
 import mock
+from oslo_utils import reflection
 
 from ironic_lib import metrics as metricslib
+from ironic_lib import metrics_utils
 from ironic_lib.tests import base
+
+
+METRICS = metrics_utils.get_metrics_logger(prefix='foo', backend='noop')
+
+
+@METRICS.timer('testing1')
+def timer_check(run, timer=None):
+    pass
+
+
+@METRICS.counter('testing2')
+def counter_check(run, counter=None):
+    pass
+
+
+@METRICS.gauge('testing2')
+def gauge_check(run, gauge=None):
+    pass
 
 
 class MockedMetricLogger(metricslib.MetricLogger):
     _gauge = mock.Mock(spec_set=types.FunctionType)
     _counter = mock.Mock(spec_set=types.FunctionType)
     _timer = mock.Mock(spec_set=types.FunctionType)
+
+
+class TestMetricReflection(base.IronicLibTestCase):
+    def test_timer_reflection(self):
+        # Ensure our decorator is done correctly (six.wraps) and we can get the
+        # arguments of our decorated function.
+        expected = ['run', 'timer']
+        signature = reflection.get_signature(timer_check)
+        parameters = list(signature.parameters)
+        self.assertEqual(expected, parameters)
+
+    def test_counter_reflection(self):
+        # Ensure our decorator is done correctly (six.wraps) and we can get the
+        # arguments of our decorated function.
+        expected = ['run', 'counter']
+        signature = reflection.get_signature(counter_check)
+        parameters = list(signature.parameters)
+        self.assertEqual(expected, parameters)
+
+    def test_gauge_reflection(self):
+        # Ensure our decorator is done correctly (six.wraps) and we can get the
+        # arguments of our decorated function.
+        expected = ['run', 'gauge']
+        signature = reflection.get_signature(gauge_check)
+        parameters = list(signature.parameters)
+        self.assertEqual(expected, parameters)
 
 
 class TestMetricLogger(base.IronicLibTestCase):
