@@ -55,6 +55,10 @@ opts = [
                default=3,
                help='Maximum attempts to verify an iSCSI connection is '
                     'active, sleeping 1 second between attempts.'),
+    cfg.IntOpt('partprobe_attempts',
+               default=10,
+               help='Maximum number of attempts to try to read the '
+                    'partition.'),
 ]
 
 CONF = cfg.CONF
@@ -627,7 +631,8 @@ def _get_labelled_partition(device_path, label, node_uuid):
               returns None.
     """
     try:
-        utils.execute('partprobe', device_path, run_as_root=True)
+        utils.execute('partprobe', device_path, run_as_root=True,
+                      attempts=CONF.disk_utils.partprobe_attempts)
 
         # lsblk command
         output, err = utils.execute('lsblk', '-Po', 'name,label', device_path,

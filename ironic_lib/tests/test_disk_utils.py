@@ -828,7 +828,7 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
                                                     self.node_uuid)
         self.assertEqual(part_result, result)
         execute_calls = [
-            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('partprobe', self.dev, run_as_root=True, attempts=10),
             mock.call('lsblk', '-Po', 'name,label', self.dev,
                       check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
@@ -843,7 +843,7 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
                                                     self.node_uuid)
         self.assertIsNone(result)
         execute_calls = [
-            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('partprobe', self.dev, run_as_root=True, attempts=10),
             mock.call('lsblk', '-Po', 'name,label', self.dev,
                       check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
@@ -861,7 +861,7 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
                                disk_utils._get_labelled_partition, self.dev,
                                self.config_part_label, self.node_uuid)
         execute_calls = [
-            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('partprobe', self.dev, run_as_root=True, attempts=10),
             mock.call('lsblk', '-Po', 'name,label', self.dev,
                       check_exit_code=[0, 1],
                       use_standard_locale=True, run_as_root=True)
@@ -875,8 +875,8 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
                                'Failed to retrieve partition labels',
                                disk_utils._get_labelled_partition, self.dev,
                                self.config_part_label, self.node_uuid)
-        mock_execute.assert_called_once_with('partprobe', self.dev,
-                                             run_as_root=True)
+        mock_execute.assert_called_once_with(
+            'partprobe', self.dev, run_as_root=True, attempts=10)
         self.assertEqual(1, mock_log.call_count)
 
     def _test_is_disk_larger_than_max_size(self, mock_execute, blk_out):
