@@ -14,7 +14,6 @@
 #    under the License.
 
 import abc
-import functools
 import random
 import time
 
@@ -55,7 +54,7 @@ class Timer(object):
         self._start = None
 
     def __call__(self, f):
-        @functools.wraps(f)
+        @six.wraps(f)
         def wrapped(*args, **kwargs):
             start = _time()
             result = f(*args, **kwargs)
@@ -117,7 +116,7 @@ class Counter(object):
         self.sample_rate = sample_rate
 
     def __call__(self, f):
-        @functools.wraps(f)
+        @six.wraps(f)
         def wrapped(*args, **kwargs):
             self.metrics.send_counter(
                 self.metrics.get_metric_name(self.name),
@@ -164,7 +163,7 @@ class Gauge(object):
         self.name = name
 
     def __call__(self, f):
-        @functools.wraps(f)
+        @six.wraps(f)
         def wrapped(*args, **kwargs):
             result = f(*args, **kwargs)
             self.metrics.send_gauge(self.metrics.get_metric_name(self.name),
