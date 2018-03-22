@@ -5,6 +5,7 @@
         - ironic-lib-tempest-partition-pxe_ipmitool
         - ironic-lib-tempest-wholedisk-agent_ipmitool
         - ironic-lib-tempest-wholedisk-pxe_ipmitool
+        - openstack-tox-lower-constraints
     gate:
       queue: ironic
       jobs:
@@ -12,3 +13,4 @@
         - ironic-lib-tempest-partition-pxe_ipmitool
         - ironic-lib-tempest-wholedisk-agent_ipmitool
         - ironic-lib-tempest-wholedisk-pxe_ipmitool
+        - openstack-tox-lower-constraints
