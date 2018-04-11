@@ -11,8 +11,8 @@ eventlet==0.18.2
 extras==1.0.0
 fasteners==0.7.0
 fixtures==3.0.0
+flake8-import-order==0.13
 flake8==2.5.5
-flake8-import-order==0.17.1
 future==0.16.0
 greenlet==0.4.10
 hacking==1.0.0
@@ -32,7 +32,7 @@ netifaces==0.10.4
 openstackdocstheme==1.18.1
 os-client-config==1.28.0
 os-testr==1.0.0
-oslo.concurrency==3.25.0
+oslo.concurrency==3.26.0
 oslo.config==5.2.0
 oslo.context==2.19.2
 oslo.i18n==3.15.3
@@ -63,7 +63,7 @@ rfc3986==0.3.1
 Routes==2.3.1
 six==1.10.0
 snowballstemmer==1.2.1
-Sphinx==1.6.5
+Sphinx==1.6.2
 sphinxcontrib-websupport==1.0.1
 stestr==1.0.0
 stevedore==1.20.0
