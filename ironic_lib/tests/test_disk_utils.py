@@ -960,6 +960,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     @mock.patch.object(disk_utils, 'dd',
                        autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
+                       autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
@@ -972,8 +974,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     def test_create_partition_exists(self, mock_get_configdrive,
                                      mock_get_labelled_partition,
-                                     mock_list_partitions,
-                                     mock_is_disk_gpt, mock_fix_gpt,
+                                     mock_list_partitions, mock_is_disk_gpt,
+                                     mock_fix_gpt, mock_fix_gpt_partition,
                                      mock_dd, mock_unlink, mock_execute):
         config_url = 'http://1.2.3.4/cd'
         configdrive_part = '/dev/fake-part1'
@@ -984,13 +986,15 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
         disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
                                                  config_url)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         mock_get_labelled_partition.assert_called_with(self.dev,
                                                        self.config_part_label,
                                                        self.node_uuid)
         self.assertFalse(mock_list_partitions.called)
-        self.assertFalse(mock_is_disk_gpt.called)
         self.assertFalse(mock_execute.called)
+        self.assertFalse(mock_is_disk_gpt.called)
+        self.assertFalse(mock_fix_gpt.called)
         mock_dd.assert_called_with(configdrive_file, configdrive_part)
         mock_unlink.assert_called_with(configdrive_file)
 
@@ -998,6 +1002,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
     @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
                        autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
@@ -1012,8 +1018,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
     def test_create_partition_gpt(self, mock_get_configdrive,
                                   mock_get_labelled_partition,
                                   mock_list_partitions, mock_is_disk_gpt,
-                                  mock_fix_gpt, mock_dd, mock_unlink,
-                                  mock_execute):
+                                  mock_fix_gpt, mock_fix_gpt_partition,
+                                  mock_dd, mock_unlink, mock_execute):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1052,7 +1058,9 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         ])
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
-        mock_fix_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
+        self.assertFalse(mock_fix_gpt.called)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_dd.assert_called_with(configdrive_file, expected_part)
         mock_unlink.assert_called_with(configdrive_file)
 
@@ -1064,6 +1072,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
     @mock.patch.object(disk_utils, 'dd',
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
                        autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
@@ -1079,6 +1089,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                    mock_get_labelled_partition,
                                    mock_list_partitions,
                                    mock_is_disk_gpt, mock_fix_gpt,
+                                   mock_fix_gpt_partition,
                                    mock_disk_exceeds, mock_dd,
                                    mock_unlink, mock_log, mock_execute,
                                    mock_count, disk_size_exceeds_max=False,
@@ -1142,9 +1153,11 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
         ])
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         mock_dd.assert_called_with(configdrive_file, expected_part)
         mock_unlink.assert_called_with(configdrive_file)
+        self.assertFalse(mock_fix_gpt.called)
         self.assertFalse(mock_fix_gpt.called)
         mock_count.assert_called_with(self.dev)
 
@@ -1164,6 +1177,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
                        autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
+                       autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
@@ -1178,6 +1193,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                                mock_get_labelled_partition,
                                                mock_list_partitions,
                                                mock_is_disk_gpt, mock_fix_gpt,
+                                               mock_fix_gpt_partition,
                                                mock_disk_exceeds, mock_dd,
                                                mock_unlink, mock_execute,
                                                mock_count):
@@ -1220,6 +1236,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                         'fat32', '-64MiB', '-0',
                                         run_as_root=True)
         self.assertEqual(2, mock_list_partitions.call_count)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
@@ -1235,6 +1252,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_larger_than_max_size',
                        autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
+                       autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
@@ -1249,6 +1268,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                               mock_get_labelled_partition,
                                               mock_list_partitions,
                                               mock_is_disk_gpt, mock_fix_gpt,
+                                              mock_fix_gpt_partition,
                                               mock_disk_exceeds, mock_dd,
                                               mock_unlink, mock_execute,
                                               mock_count):
@@ -1285,6 +1305,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                         'fat32', '-64MiB', '-0',
                                         run_as_root=True)
         self.assertEqual(1, mock_list_partitions.call_count)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_disk_exceeds.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
@@ -1296,6 +1317,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
     @mock.patch.object(disk_utils, 'dd',
+                       autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
                        autospec=True)
     @mock.patch.object(disk_utils, '_fix_gpt_structs',
                        autospec=True)
@@ -1311,6 +1334,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                                                mock_get_labelled_partition,
                                                mock_list_partitions,
                                                mock_is_disk_gpt, mock_fix_gpt,
+                                               mock_fix_gpt_partition,
                                                mock_dd, mock_unlink,
                                                mock_count):
         config_url = 'http://1.2.3.4/cd'
@@ -1340,6 +1364,7 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
 
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         self.assertEqual(1, mock_list_partitions.call_count)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
         self.assertFalse(mock_dd.called)
@@ -1375,6 +1400,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
+    @mock.patch.object(disk_utils, '_fix_gpt_partition',
+                       autospec=True)
     @mock.patch.object(disk_utils, '_is_disk_gpt_partitioned',
                        autospec=True)
     @mock.patch.object(disk_utils, '_get_labelled_partition',
@@ -1383,7 +1410,8 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
                        autospec=True)
     def test_create_partition_conf_drive_error_counting(
             self, mock_get_configdrive, mock_get_labelled_partition,
-            mock_is_disk_gpt, mock_unlink, mock_execute, mock_count):
+            mock_is_disk_gpt, mock_fix_gpt_partition,
+            mock_unlink, mock_execute, mock_count):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
@@ -1400,5 +1428,6 @@ class WholeDiskConfigDriveTestCases(test_base.BaseTestCase):
 
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
         mock_unlink.assert_called_with(configdrive_file)
+        mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_count.assert_called_once_with(self.dev)

@@ -696,6 +696,28 @@ def _fix_gpt_structs(device, node_uuid):
         raise exception.InstanceDeployFailure(msg)
 
 
+def _fix_gpt_partition(device, node_uuid):
+    """Fix GPT partition
+
+    Fix GPT table information when image is written to a disk which
+    has a bigger extend (e.g. 30GB image written on a 60Gb physical disk).
+
+    :param device: The device path.
+    :param node_uuid: UUID of the Node.
+    :raises: InstanceDeployFailure if exception is caught.
+    """
+    try:
+        disk_is_gpt_partitioned = _is_disk_gpt_partitioned(device, node_uuid)
+        if disk_is_gpt_partitioned:
+            _fix_gpt_structs(device, node_uuid)
+    except Exception as e:
+        msg = (_('Failed to fix GPT partition on disk %(disk)s '
+                 'for node %(node)s. Error: %(error)s') %
+               {'disk': device, 'node': node_uuid, 'error': e})
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+
+
 def create_config_drive_partition(node_uuid, device, configdrive):
     """Create a partition for config drive
 
@@ -728,6 +750,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                   "device: %(dev)s for node %(node)s",
                   {'dev': device, 'size': confdrive_mb, 'node': node_uuid})
 
+        _fix_gpt_partition(device, node_uuid)
         if config_drive_part:
             LOG.debug("Configdrive for node %(node)s exists at "
                       "%(part)s",
@@ -736,7 +759,6 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             cur_parts = set(part['number'] for part in list_partitions(device))
 
             if _is_disk_gpt_partitioned(device, node_uuid):
-                _fix_gpt_structs(device, node_uuid)
                 create_option = '0:-%dMB:0' % MAX_CONFIG_DRIVE_SIZE_MB
                 utils.execute('sgdisk', '-n', create_option, device,
                               run_as_root=True)
