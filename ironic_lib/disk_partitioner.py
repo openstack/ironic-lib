@@ -74,7 +74,7 @@ class DiskPartitioner(object):
                       use_standard_locale=True, run_as_root=True)
 
     def add_partition(self, size, part_type='primary', fs_type='',
-                      boot_flag=None):
+                      boot_flag=None, extra_flags=None):
         """Add a partition.
 
         :param size: The size of the partition in MiB.
@@ -87,13 +87,16 @@ class DiskPartitioner(object):
         :param boot_flag: Boot flag that needs to be configured on the
                           partition. Ignored if None. It can take values
                           'bios_grub', 'boot'.
+        :param extra_flags: List of flags to set on the partition. Ignored
+                            if None.
         :returns: The partition number.
 
         """
         self._partitions.append({'size': size,
                                  'type': part_type,
                                  'fs_type': fs_type,
-                                 'boot_flag': boot_flag})
+                                 'boot_flag': boot_flag,
+                                 'extra_flags': extra_flags})
         return len(self._partitions)
 
     def get_partitions(self):
@@ -118,6 +121,9 @@ class DiskPartitioner(object):
                              str(start), str(end)])
             if part['boot_flag']:
                 cmd_args.extend(['set', str(num), part['boot_flag'], 'on'])
+            if part['extra_flags']:
+                for flag in part['extra_flags']:
+                    cmd_args.extend(['set', str(num), flag, 'on'])
             start = end
 
         self._exec(*cmd_args)
