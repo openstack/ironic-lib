@@ -807,6 +807,22 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                                              '/dev/fake', run_as_root=True,
                                              use_standard_locale=True)
 
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_block_uuid_fallback_to_uuid(self, mock_execute):
+        mock_execute.side_effect = [('', ''),
+                                    ('value', '')]
+        self.assertEqual('value',
+                         disk_utils.block_uuid('/dev/fake'))
+        execute_calls = [
+            mock.call('blkid', '-s', 'UUID', '-o', 'value',
+                      '/dev/fake', check_exit_code=[0],
+                      run_as_root=True),
+            mock.call('blkid', '-s', 'PARTUUID', '-o', 'value',
+                      '/dev/fake', check_exit_code=[0],
+                      run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
 
 @mock.patch.object(utils, 'execute', autospec=True)
 class WholeDiskPartitionTestCases(base.IronicLibTestCase):
