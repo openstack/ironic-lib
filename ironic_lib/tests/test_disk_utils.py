@@ -321,10 +321,8 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                                    self.node_uuid, boot_option=boot_option,
                                    boot_mode=boot_mode, disk_label=disk_label)
 
-        _s = lambda x, sz: x + sz
-
         if boot_option == "local" and boot_mode == "uefi":
-            add_efi_sz = lambda x: str(_s(x, self.efi_size))
+            add_efi_sz = lambda x: str(x + self.efi_size)
             expected_mkpart = ['mkpart', 'primary', 'fat32', '1',
                                add_efi_sz(1),
                                'set', '1', 'boot', 'on',
@@ -335,7 +333,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         else:
             if boot_option == "local":
                 if disk_label == "gpt":
-                    add_bios_sz = lambda x: str(_s(x, self.bios_size))
+                    add_bios_sz = lambda x: str(x + self.bios_size)
                     expected_mkpart = ['mkpart', 'primary', '', '1',
                                        add_bios_sz(1),
                                        'set', '1', 'bios_grub', 'on',
