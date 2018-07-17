@@ -115,7 +115,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
 
     def test_no_swap_partition(self):
         self.mock_ibd.side_effect = iter([True, False])
@@ -133,7 +134,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
 
     def test_no_ephemeral_partition(self):
         ephemeral_part = '/dev/fake-part1'
@@ -160,7 +162,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
 
     @mock.patch.object(utils, 'unlink_without_raise', autospec=True)
     @mock.patch.object(disk_utils, '_get_configdrive', autospec=True)
@@ -193,7 +196,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              commit=True,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
         mock_unlink.assert_called_once_with('fake-path')
 
     @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
@@ -224,7 +228,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=True,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label='gpt')
+                                             disk_label='gpt',
+                                             cpu_arch="")
 
     @mock.patch.object(disk_utils, 'block_uuid', autospec=True)
     @mock.patch.object(disk_utils, 'populate_image', autospec=True)
@@ -252,7 +257,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=True,
                                              boot_option="local",
                                              boot_mode="uefi",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
         self.assertEqual(self.mock_ibd.call_args_list, mock_ibd_calls)
         mock_mkfs.assert_called_once_with(fs='vfat', path=efi_part,
                                           label='efi-part')
@@ -288,7 +294,38 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              self.node_uuid, commit=False,
                                              boot_option="netboot",
                                              boot_mode="bios",
-                                             disk_label=None)
+                                             disk_label=None,
+                                             cpu_arch="")
+        self.assertFalse(mock_mkfs.called)
+
+    @mock.patch.object(disk_utils, 'block_uuid', autospec=True)
+    @mock.patch.object(disk_utils, 'populate_image', autospec=True)
+    @mock.patch.object(utils, 'mkfs', autospec=True)
+    def test_ppc64le_prep_part(self, mock_mkfs, mock_populate_image,
+                               mock_block_uuid):
+        """Test that PReP partition uuid is returned."""
+        prep_part = '/dev/fake-part1'
+        root_part = '/dev/fake-part2'
+
+        self.mock_mp.return_value = {'PReP Boot partition': prep_part,
+                                     'root': root_part}
+        self.mock_ibd.return_value = True
+        calls = [mock.call(root_part),
+                 mock.call(prep_part)]
+        disk_utils.work_on_disk(self.dev, self.root_mb,
+                                self.swap_mb, self.ephemeral_mb,
+                                self.ephemeral_format, self.image_path,
+                                self.node_uuid, boot_option="local",
+                                cpu_arch='ppc64le')
+        self.assertEqual(self.mock_ibd.call_args_list, calls)
+        self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
+                                             self.swap_mb, self.ephemeral_mb,
+                                             self.configdrive_mb,
+                                             self.node_uuid, commit=True,
+                                             boot_option="local",
+                                             boot_mode="bios",
+                                             disk_label=None,
+                                             cpu_arch="ppc64le")
         self.assertFalse(mock_mkfs.called)
 
 
@@ -314,12 +351,13 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                 '--', 'unit', 'MiB', 'mklabel', label]
 
     def _test_make_partitions(self, mock_exc, boot_option, boot_mode='bios',
-                              disk_label=None):
+                              disk_label=None, cpu_arch=""):
         mock_exc.return_value = ('', '')
         disk_utils.make_partitions(self.dev, self.root_mb, self.swap_mb,
                                    self.ephemeral_mb, self.configdrive_mb,
                                    self.node_uuid, boot_option=boot_option,
-                                   boot_mode=boot_mode, disk_label=disk_label)
+                                   boot_mode=boot_mode, disk_label=disk_label,
+                                   cpu_arch=cpu_arch)
 
         if boot_option == "local" and boot_mode == "uefi":
             add_efi_sz = lambda x: str(x + self.efi_size)
@@ -333,14 +371,28 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         else:
             if boot_option == "local":
                 if disk_label == "gpt":
-                    add_bios_sz = lambda x: str(x + self.bios_size)
-                    expected_mkpart = ['mkpart', 'primary', '', '1',
-                                       add_bios_sz(1),
-                                       'set', '1', 'bios_grub', 'on',
+                    if cpu_arch.startswith('ppc64'):
+                        expected_mkpart = ['mkpart', 'primary', '', '1', '9',
+                                           'set', '1', 'prep', 'on',
+                                           'mkpart', 'primary', 'linux-swap',
+                                           '9', '521', 'mkpart', 'primary',
+                                           '', '521', '1545']
+                    else:
+                        add_bios_sz = lambda x: str(x + self.bios_size)
+                        expected_mkpart = ['mkpart', 'primary', '', '1',
+                                           add_bios_sz(1),
+                                           'set', '1', 'bios_grub', 'on',
+                                           'mkpart', 'primary', 'linux-swap',
+                                           add_bios_sz(1), add_bios_sz(513),
+                                           'mkpart', 'primary', '',
+                                           add_bios_sz(513), add_bios_sz(1537)]
+                elif cpu_arch.startswith('ppc64'):
+                    expected_mkpart = ['mkpart', 'primary', '', '1', '9',
+                                       'set', '1', 'boot', 'on',
+                                       'set', '1', 'prep', 'on',
                                        'mkpart', 'primary', 'linux-swap',
-                                       add_bios_sz(1), add_bios_sz(513),
-                                       'mkpart', 'primary', '',
-                                       add_bios_sz(513), add_bios_sz(1537)]
+                                       '9', '521', 'mkpart', 'primary',
+                                       '', '521', '1545']
                 else:
                     expected_mkpart = ['mkpart', 'primary', 'linux-swap', '1',
                                        '513', 'mkpart', 'primary', '', '513',
@@ -376,6 +428,14 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
     def test_make_partitions_disk_label_gpt(self, mock_exc):
         self._test_make_partitions(mock_exc, boot_option="netboot",
                                    disk_label="gpt")
+
+    def test_make_partitions_mbr_with_prep(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="local",
+                                   disk_label="msdos", cpu_arch="ppc64le")
+
+    def test_make_partitions_gpt_with_prep(self, mock_exc):
+        self._test_make_partitions(mock_exc, boot_option="local",
+                                   disk_label="gpt", cpu_arch="ppc64le")
 
     def test_make_partitions_with_ephemeral(self, mock_exc):
         self.ephemeral_mb = 2048

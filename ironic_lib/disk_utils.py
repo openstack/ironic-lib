@@ -172,12 +172,13 @@ def is_nvme_device(dev):
 def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
                     configdrive_mb, node_uuid, commit=True,
                     boot_option="netboot", boot_mode="bios",
-                    disk_label=None):
+                    disk_label=None, cpu_arch=""):
     """Partition the disk device.
 
     Create partitions for root, swap, ephemeral and configdrive on a
     disk device.
 
+    :param dev: Path for the device to work on.
     :param root_mb: Size of the root partition in mebibytes (MiB).
     :param swap_mb: Size of the swap partition in mebibytes (MiB). If 0,
         no partition will be created.
@@ -193,6 +194,11 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     :param disk_label: The disk label to be used when creating the
         partition table. Valid values are: "msdos", "gpt" or None; If None
         Ironic will figure it out according to the boot_mode parameter.
+    :param cpu_arch: Architecture of the node the disk device belongs to.
+        When using the default value of None, no architecture specific
+        steps will be taken. This default should be used for x86_64. When
+        set to ppc64*, architecture specific steps are taken for booting a
+        partition image locally.
     :returns: A dictionary containing the partition type as Key and partition
         path as Value for the partitions created by this method.
 
@@ -227,11 +233,25 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
                                     boot_flag='boot')
         part_dict['efi system partition'] = part_template % part_num
 
-    if boot_mode == "bios" and boot_option == "local" and disk_label == "gpt":
+    if (boot_mode == "bios" and boot_option == "local" and disk_label == "gpt"
+        and not cpu_arch.startswith('ppc64')):
         part_num = dp.add_partition(CONF.disk_utils.bios_boot_partition_size,
                                     boot_flag='bios_grub')
         part_dict['BIOS Boot partition'] = part_template % part_num
 
+    # NOTE(mjturek): With ppc64* nodes, partition images are expected to have
+    # a PrEP partition at the start of the disk. This is an 8 MiB partition
+    # with the boot and prep flags set. The bootloader should be installed
+    # here.
+    if (cpu_arch.startswith("ppc64") and boot_mode == "bios" and
+        boot_option == "local"):
+        LOG.debug("Add PReP boot partition (8 MB) to device: "
+                  "%(dev)s for node %(node)s",
+                  {'dev': dev, 'node': node_uuid})
+        boot_flag = 'boot' if disk_label == 'msdos' else None
+        part_num = dp.add_partition(8, part_type='primary',
+                                    boot_flag=boot_flag, extra_flags=['prep'])
+        part_dict['PReP Boot partition'] = part_template % part_num
     if ephemeral_mb:
         LOG.debug("Add ephemeral partition (%(size)d MB) to device: %(dev)s "
                   "for node %(node)s",
@@ -258,10 +278,10 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
               "for node %(node)s",
               {'dev': dev, 'size': root_mb, 'node': node_uuid})
 
-    boot_val = None
-    if (boot_mode == "bios" and boot_option == "local" and
-        disk_label == "msdos"):
-        boot_val = 'boot'
+    boot_val = 'boot' if (not cpu_arch.startswith("ppc64")
+                          and boot_mode == "bios"
+                          and boot_option == "local"
+                          and disk_label == "msdos") else None
 
     part_num = dp.add_partition(root_mb, boot_flag=boot_val)
 
@@ -458,7 +478,7 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
 def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                  image_path, node_uuid, preserve_ephemeral=False,
                  configdrive=None, boot_option="netboot", boot_mode="bios",
-                 tempdir=None, disk_label=None):
+                 tempdir=None, disk_label=None, cpu_arch=""):
     """Create partitions and copy an image to the root partition.
 
     :param dev: Path for the device to work on.
@@ -481,6 +501,11 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
     :param disk_label: The disk label to be used when creating the
         partition table. Valid values are: "msdos", "gpt" or None; If None
         Ironic will figure it out according to the boot_mode parameter.
+    :param cpu_arch: Architecture of the node the disk device belongs to.
+        When using the default value of None, no architecture specific
+        steps will be taken. This default should be used for x86_64. When
+        set to ppc64*, architecture specific steps are taken for booting a
+        partition image locally.
     :returns: a dictionary containing the following keys:
         'root uuid': UUID of root partition
         'efi system partition uuid': UUID of the uefi system partition
@@ -509,7 +534,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                                     commit=commit,
                                     boot_option=boot_option,
                                     boot_mode=boot_mode,
-                                    disk_label=disk_label)
+                                    disk_label=disk_label,
+                                    cpu_arch=cpu_arch)
         LOG.info("Successfully completed the disk device"
                  " %(dev)s partitioning for node %(node)s",
                  {'dev': dev, "node": node_uuid})
@@ -524,7 +550,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                 _("Root device '%s' not found") % root_part)
 
         for part in ('swap', 'ephemeral', 'configdrive',
-                     'efi system partition'):
+                     'efi system partition', 'PReP Boot partition'):
             part_device = part_dict.get(part)
             LOG.debug("Checking for %(part)s device (%(dev)s) on node "
                       "%(node)s.", {'part': part, 'dev': part_device,
@@ -572,8 +598,13 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
 
     uuids_to_return = {
         'root uuid': root_part,
-        'efi system partition uuid': part_dict.get('efi system partition')
+        'efi system partition uuid': part_dict.get('efi system partition'),
     }
+
+    if cpu_arch.startswith('ppc'):
+        uuids_to_return[
+            'PReP Boot partition uuid'
+        ] = part_dict.get('PReP Boot partition')
 
     try:
         for part, part_dev in uuids_to_return.items():

@@ -32,18 +32,22 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
         dp.add_partition(2048, boot_flag='boot')
         dp.add_partition(2048, boot_flag='bios_grub')
         expected = [(1, {'boot_flag': None,
+                         'extra_flags': None,
                          'fs_type': '',
                          'type': 'primary',
                          'size': 1024}),
                     (2, {'boot_flag': None,
+                         'extra_flags': None,
                          'fs_type': 'linux-swap',
                          'type': 'primary',
                          'size': 512}),
                     (3, {'boot_flag': 'boot',
+                         'extra_flags': None,
                          'fs_type': '',
                          'type': 'primary',
                          'size': 2048}),
                     (4, {'boot_flag': 'bios_grub',
+                         'extra_flags': None,
                          'fs_type': '',
                          'type': 'primary',
                          'size': 2048})]
@@ -57,14 +61,22 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
     def test_commit(self, mock_utils_exc, mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
                       (2, {'boot_flag': 'boot',
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
                       (3, {'boot_flag': 'bios_grub',
+                           'extra_flags': None,
+                           'fs_type': 'fake-fs-type',
+                           'type': 'fake-type',
+                           'size': 1}),
+                      (4, {'boot_flag': 'boot',
+                           'extra_flags': ['prep', 'fake-flag'],
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -79,7 +91,10 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'mkpart', 'fake-type', 'fake-fs-type', '2', '3',
             'set', '2', 'boot', 'on',
             'mkpart', 'fake-type', 'fake-fs-type', '3', '4',
-            'set', '3', 'bios_grub', 'on')
+            'set', '3', 'bios_grub', 'on',
+            'mkpart', 'fake-type', 'fake-fs-type', '4', '5',
+            'set', '4', 'boot', 'on', 'set', '4', 'prep', 'on',
+            'set', '4', 'fake-flag', 'on')
         mock_utils_exc.assert_called_once_with(
             'fuser', '/dev/fake', run_as_root=True,
             check_exit_code=[0, 1])
@@ -92,10 +107,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                                              mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
                       (2, {'boot_flag': 'boot',
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -125,10 +142,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                                                mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
                       (2, {'boot_flag': 'boot',
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
@@ -159,10 +178,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                                              mock_disk_partitioner_exec):
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1}),
                       (2, {'boot_flag': 'boot',
+                           'extra_flags': None,
                            'fs_type': 'fake-fs-type',
                            'type': 'fake-type',
                            'size': 1})]
