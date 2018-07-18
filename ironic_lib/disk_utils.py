@@ -345,10 +345,18 @@ def populate_image(src, dst):
 
 
 def block_uuid(dev):
-    """Get UUID of a block device."""
+    """Get UUID of a block device.
+
+    Try to fetch the UUID, if that fails, try to fetch the PARTUUID.
+    """
     out, _err = utils.execute('blkid', '-s', 'UUID', '-o', 'value', dev,
-                              run_as_root=True,
-                              check_exit_code=[0])
+                              run_as_root=True, check_exit_code=[0])
+    if not out:
+        LOG.debug('Falling back to partition UUID as the block device UUID '
+                  'was not found while examining %(device)s',
+                  {'device': dev})
+        out, _err = utils.execute('blkid', '-s', 'PARTUUID', '-o', 'value',
+                                  dev, run_as_root=True, check_exit_code=[0])
     return out.strip()
 
 
