@@ -1,4 +1,9 @@
 - project:
+    templates:
+      - openstack-python-jobs
+      - openstack-python35-jobs
+      - publish-openstack-sphinx-docs
+      - check-requirements
     check:
       jobs:
         - ironic-lib-tempest-partition-agent_ipmitool
@@ -6,6 +11,7 @@
         - ironic-lib-tempest-wholedisk-agent_ipmitool
         - ironic-lib-tempest-wholedisk-pxe_ipmitool
         - openstack-tox-lower-constraints
+        - openstack-tox-cover
     gate:
       queue: ironic
       jobs:
@@ -14,3 +20,6 @@
         - ironic-lib-tempest-wholedisk-agent_ipmitool
         - ironic-lib-tempest-wholedisk-pxe_ipmitool
         - openstack-tox-lower-constraints
+    post:
+      jobs:
+        - openstack-tox-cover
