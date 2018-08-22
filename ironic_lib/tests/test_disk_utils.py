@@ -1038,18 +1038,17 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
         self.assertEqual(1, mock_log.call_count)
 
     def test_fix_gpt_structs_fix_required(self, mock_execute):
-        partprobe_err = """
-Error: The backup GPT table is not at the end of the disk, as it should be.
-This might mean that another operating system believes the disk is smaller.
-Fix, by moving the backup to the end (and removing the old backup)?
-Warning: Not all of the space available to /dev/sdb appears to be used,
-you can fix the GPT to use all of the space (an extra 581456476 blocks)
-or continue with the current setting?
+        sgdisk_v_output = """
+Problem: The secondary header's self-pointer indicates that it doesn't reside
+at the end of the disk. If you've added a disk to a RAID array, use the 'e'
+option on the experts' menu to adjust the secondary header's and partition
+table's locations.
+
+Identified 1 problems!
 """
-        mock_execute.return_value = ('', partprobe_err)
+        mock_execute.return_value = (sgdisk_v_output, '')
         execute_calls = [
-            mock.call('partprobe', '/dev/fake', use_standard_locale=True,
-                      run_as_root=True),
+            mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
             mock.call('sgdisk', '-e', '/dev/fake', run_as_root=True)
         ]
         disk_utils._fix_gpt_structs('/dev/fake', self.node_uuid)
@@ -1059,8 +1058,7 @@ or continue with the current setting?
         mock_execute.return_value = ('', '')
 
         disk_utils._fix_gpt_structs('/dev/fake', self.node_uuid)
-        mock_execute.assert_called_once_with('partprobe', '/dev/fake',
-                                             use_standard_locale=True,
+        mock_execute.assert_called_once_with('sgdisk', '-v', '/dev/fake',
                                              run_as_root=True)
 
     @mock.patch.object(disk_utils.LOG, 'error', autospec=True)
@@ -1070,8 +1068,7 @@ or continue with the current setting?
                                'Failed to fix GPT data structures on disk',
                                disk_utils._fix_gpt_structs,
                                self.dev, self.node_uuid)
-        mock_execute.assert_called_once_with('partprobe', '/dev/fake',
-                                             use_standard_locale=True,
+        mock_execute.assert_called_once_with('sgdisk', '-v', '/dev/fake',
                                              run_as_root=True)
         self.assertEqual(1, mock_log.call_count)
 
