@@ -742,12 +742,10 @@ def _fix_gpt_structs(device, node_uuid):
         commands fail.
     """
     try:
-        output, err = utils.execute('partprobe', device,
-                                    use_standard_locale=True,
-                                    run_as_root=True)
+        output, _err = utils.execute('sgdisk', '-v', device, run_as_root=True)
 
-        search_str = "fix the GPT to use all of the space"
-        if search_str in err:
+        search_str = "it doesn't reside\nat the end of the disk"
+        if search_str in output:
             utils.execute('sgdisk', '-e', device, run_as_root=True)
     except (processutils.UnknownArgumentError,
             processutils.ProcessExecutionError, OSError) as e:
