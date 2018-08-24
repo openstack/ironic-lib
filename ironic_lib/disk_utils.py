@@ -649,7 +649,7 @@ def _get_labelled_partition(device_path, label, node_uuid):
                    for v in shlex.split(device))}
             if not dev:
                 continue
-            if dev['LABEL'] == label:
+            if dev['LABEL'].upper() == label.upper():
                 if found_part:
                     found_2 = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
                     found = [found_part, found_2]
