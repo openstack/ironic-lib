@@ -796,6 +796,22 @@ class WholeDiskPartitionTestCases(test_base.BaseTestCase):
         ]
         mock_execute.assert_has_calls(execute_calls)
 
+    def test_get_partition_present_uppercase(self, mock_execute):
+        lsblk_output = 'NAME="fake12" LABEL="CONFIG-2"\n'
+        part_result = '/dev/fake12'
+        mock_execute.side_effect = [(None, ''), (lsblk_output, '')]
+        result = disk_utils._get_labelled_partition(self.dev,
+                                                    self.config_part_label,
+                                                    self.node_uuid)
+        self.assertEqual(part_result, result)
+        execute_calls = [
+            mock.call('partprobe', self.dev, run_as_root=True),
+            mock.call('lsblk', '-Po', 'name,label', self.dev,
+                      check_exit_code=[0, 1],
+                      use_standard_locale=True, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
     def test_get_partition_absent(self, mock_execute):
         mock_execute.side_effect = [(None, ''),
                                     (None, '')]
