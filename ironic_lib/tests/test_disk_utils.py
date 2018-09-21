@@ -202,7 +202,8 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
 
     @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
     @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
-    @mock.patch.object(disk_utils, 'populate_image', lambda *_: None)
+    @mock.patch.object(disk_utils, 'populate_image', lambda image_path,
+                       root_path, conv_flags=None: None)
     def test_gpt_disk_label(self):
         ephemeral_part = '/dev/fake-part1'
         swap_part = '/dev/fake-part2'
@@ -220,7 +221,7 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
         disk_utils.work_on_disk(self.dev, self.root_mb,
                                 self.swap_mb, ephemeral_mb, ephemeral_format,
                                 self.image_path, self.node_uuid,
-                                disk_label='gpt')
+                                disk_label='gpt', conv_flags=None)
         self.assertEqual(self.mock_ibd.call_args_list, calls)
         self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
                                              self.swap_mb, ephemeral_mb,
@@ -263,7 +264,7 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
         mock_mkfs.assert_called_once_with(fs='vfat', path=efi_part,
                                           label='efi-part')
         mock_populate_image.assert_called_once_with(self.image_path,
-                                                    root_part)
+                                                    root_part, conv_flags=None)
         mock_block_uuid.assert_any_call(root_part)
         mock_block_uuid.assert_any_call(efi_part)
 
@@ -309,7 +310,7 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
 
         self.mock_mp.return_value = {'PReP Boot partition': prep_part,
                                      'root': root_part}
-        self.mock_ibd.return_value = True
+        self.mock_ibd.return_vaue = True
         calls = [mock.call(root_part),
                  mock.call(prep_part)]
         disk_utils.work_on_disk(self.dev, self.root_mb,
@@ -327,6 +328,30 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                              disk_label=None,
                                              cpu_arch="ppc64le")
         self.assertFalse(mock_mkfs.called)
+
+    @mock.patch.object(disk_utils, 'block_uuid', autospec=True)
+    @mock.patch.object(disk_utils, 'populate_image', autospec=True)
+    @mock.patch.object(utils, 'mkfs', autospec=True)
+    def test_convert_to_sparse(self, mock_mkfs, mock_populate_image,
+                               mock_block_uuid):
+        ephemeral_part = '/dev/fake-part1'
+        swap_part = '/dev/fake-part2'
+        root_part = '/dev/fake-part3'
+        ephemeral_mb = 256
+        ephemeral_format = 'exttest'
+
+        self.mock_mp.return_value = {'ephemeral': ephemeral_part,
+                                     'swap': swap_part,
+                                     'root': root_part}
+        self.mock_ibd.return_value = True
+        disk_utils.work_on_disk(self.dev, self.root_mb,
+                                self.swap_mb, ephemeral_mb, ephemeral_format,
+                                self.image_path, self.node_uuid,
+                                disk_label='gpt', conv_flags='sparse')
+
+        mock_populate_image.assert_called_once_with(self.image_path,
+                                                    root_part,
+                                                    conv_flags='sparse')
 
 
 @mock.patch.object(utils, 'execute', autospec=True)
@@ -612,7 +637,15 @@ class PopulateImageTestCase(base.IronicLibTestCase):
         type(mock_qinfo.return_value).file_format = mock.PropertyMock(
             return_value='raw')
         disk_utils.populate_image('src', 'dst')
-        mock_dd.assert_called_once_with('src', 'dst')
+        mock_dd.assert_called_once_with('src', 'dst', conv_flags=None)
+        self.assertFalse(mock_cg.called)
+
+    def test_populate_raw_image_with_convert(self, mock_cg, mock_qinfo,
+                                             mock_dd):
+        type(mock_qinfo.return_value).file_format = mock.PropertyMock(
+            return_value='raw')
+        disk_utils.populate_image('src', 'dst', conv_flags='sparse')
+        mock_dd.assert_called_once_with('src', 'dst', conv_flags='sparse')
         self.assertFalse(mock_cg.called)
 
     def test_populate_qcow2_image(self, mock_cg, mock_qinfo, mock_dd):

@@ -313,9 +313,15 @@ def is_block_device(dev):
     raise exception.InstanceDeployFailure(msg)
 
 
-def dd(src, dst):
+def dd(src, dst, conv_flags=None):
     """Execute dd from src to dst."""
-    utils.dd(src, dst, 'bs=%s' % CONF.disk_utils.dd_block_size, 'oflag=direct')
+    if conv_flags:
+        extra_args = ['conv=%s' % conv_flags]
+    else:
+        extra_args = []
+
+    utils.dd(src, dst, 'bs=%s' % CONF.disk_utils.dd_block_size, 'oflag=direct',
+             *extra_args)
 
 
 def qemu_img_info(path):
@@ -335,10 +341,10 @@ def convert_image(source, dest, out_format, run_as_root=False):
     utils.execute(*cmd, run_as_root=run_as_root, prlimit=QEMU_IMG_LIMITS)
 
 
-def populate_image(src, dst):
+def populate_image(src, dst, conv_flags=None):
     data = qemu_img_info(src)
     if data.file_format == 'raw':
-        dd(src, dst)
+        dd(src, dst, conv_flags=conv_flags)
     else:
         convert_image(src, dst, 'raw', True)
 
@@ -485,7 +491,7 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
 def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
                  image_path, node_uuid, preserve_ephemeral=False,
                  configdrive=None, boot_option="netboot", boot_mode="bios",
-                 tempdir=None, disk_label=None, cpu_arch=""):
+                 tempdir=None, disk_label=None, cpu_arch="", conv_flags=None):
     """Create partitions and copy an image to the root partition.
 
     :param dev: Path for the device to work on.
@@ -513,6 +519,9 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         steps will be taken. This default should be used for x86_64. When
         set to ppc64*, architecture specific steps are taken for booting a
         partition image locally.
+    :param conv_flags: Flags that need to be sent to the dd command, to control
+        the conversion of the original file when copying to the host. It can
+        contain several options separated by commas.
     :returns: a dictionary containing the following keys:
         'root uuid': UUID of root partition
         'efi system partition uuid': UUID of the uefi system partition
@@ -575,7 +584,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
 
         if configdrive_part:
             # Copy the configdrive content to the configdrive partition
-            dd(configdrive_file, configdrive_part)
+            dd(configdrive_file, configdrive_part, conv_flags=conv_flags)
             LOG.info("Configdrive for node %(node)s successfully copied "
                      "onto partition %(partition)s",
                      {'node': node_uuid, 'partition': configdrive_part})
@@ -586,7 +595,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         if configdrive_file:
             utils.unlink_without_raise(configdrive_file)
 
-    populate_image(image_path, root_part)
+    populate_image(image_path, root_part, conv_flags=conv_flags)
     LOG.info("Image for %(node)s successfully populated",
              {'node': node_uuid})
 
