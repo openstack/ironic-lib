@@ -467,6 +467,13 @@ class MatchRootDeviceTestCase(base.IronicLibTestCase):
 
 class WaitForDisk(base.IronicLibTestCase):
 
+    def setUp(self):
+        super(WaitForDisk, self).setUp()
+        CONF.set_override('check_device_interval', .01,
+                          group='disk_partitioner')
+        CONF.set_override('check_device_max_retries', 2,
+                          group='disk_partitioner')
+
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_wait_for_disk_to_become_available(self, mock_exc):
         mock_exc.return_value = ('', '')
@@ -481,8 +488,6 @@ class WaitForDisk(base.IronicLibTestCase):
                        side_effect=processutils.ProcessExecutionError(
                            stderr='fake'))
     def test_wait_for_disk_to_become_available_no_fuser(self, mock_exc):
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
         self.assertRaises(exception.IronicException,
                           utils.wait_for_disk_to_become_available,
                           'fake-dev')
@@ -500,8 +505,6 @@ class WaitForDisk(base.IronicLibTestCase):
         # NOTE(TheJulia): Looks like fuser returns the actual list of pids
         # in the stdout output, where as all other text is returned in
         # stderr.
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
         # The 'psmisc' version has a leading space character in stdout. The
         # filename is output to stderr
         mock_exc.side_effect = [(' 1234   ', 'fake-dev: '),
@@ -528,8 +531,6 @@ class WaitForDisk(base.IronicLibTestCase):
         # NOTE(TheJulia): Looks like fuser returns the actual list of pids
         # in the stdout output, where as all other text is returned in
         # stderr.
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
         # The 'busybox' version does not have a leading space character in
         # stdout. Also nothing is output to stderr.
         mock_exc.side_effect = [('1234', ''),
@@ -553,8 +554,6 @@ class WaitForDisk(base.IronicLibTestCase):
         # NOTE(TheJulia): Looks like fuser returns the actual list of pids
         # in the stdout output, where as all other text is returned in
         # stderr.
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
 
         mock_exc.return_value = ('', 'Specified filename /dev/fake '
                                      'does not exist.')
@@ -579,8 +578,6 @@ class WaitForDisk(base.IronicLibTestCase):
         # Test that initially device is not available but then becomes
         # available. This version has the 'psmisc' version of 'fuser' values
         # for stdout and stderr.
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
         # The 'psmisc' version has a leading space character in stdout. The
         # filename is output to stderr
         mock_exc.side_effect = [(' 1234   ', 'fake-dev: '),
@@ -598,8 +595,6 @@ class WaitForDisk(base.IronicLibTestCase):
         # Test that initially device is not available but then becomes
         # available. This version has the 'busybox' version of 'fuser' values
         # for stdout and stderr.
-        CONF.disk_partitioner.check_device_interval = .01
-        CONF.disk_partitioner.check_device_max_retries = 2
         # The 'busybox' version does not have a leading space character in
         # stdout. Also nothing is output to stderr.
         mock_exc.side_effect = [('1234 5895', ''),

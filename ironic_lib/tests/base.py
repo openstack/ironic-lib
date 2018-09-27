@@ -18,6 +18,7 @@
 import subprocess
 
 from oslo_concurrency import processutils
+from oslo_config import fixture as config_fixture
 from oslotest import base as test_base
 
 from ironic_lib import utils
@@ -35,6 +36,9 @@ class IronicLibTestCase(test_base.BaseTestCase):
 
     def setUp(self):
         super(IronicLibTestCase, self).setUp()
+
+        # Make sure config overrides do not leak for test to test.
+        self.cfg_fixture = self.useFixture(config_fixture.Config())
 
         # Ban running external processes via 'execute' like functions. If the
         # patched function is called, an exception is raised to warn the
