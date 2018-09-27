@@ -1,15 +1,12 @@
-========================
+==========
+ironic-lib
+==========
+
 Team and repository tags
-========================
+------------------------
 
 .. image:: https://governance.openstack.org/tc/badges/ironic-lib.svg
     :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
-
-----------
-ironic_lib
-----------
 
 Overview
 --------
@@ -27,6 +24,6 @@ To run tests in virtualenvs (preferred)::
 
 To run tests in the current environment::
 
-  $ sudo pip install -r requirements.txt
-  $ nosetests
+  $ sudo pip install -r requirements.txt -r test-requirements.txt
+  $ stestr run
 
