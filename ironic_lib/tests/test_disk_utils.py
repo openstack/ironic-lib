@@ -202,6 +202,40 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
 
     @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
     @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
+    @mock.patch.object(disk_utils, 'populate_image', autospec=True)
+    def test_without_image(self, mock_populate):
+        ephemeral_part = '/dev/fake-part1'
+        swap_part = '/dev/fake-part2'
+        root_part = '/dev/fake-part3'
+        ephemeral_mb = 256
+        ephemeral_format = 'exttest'
+
+        self.mock_mp.return_value = {'ephemeral': ephemeral_part,
+                                     'swap': swap_part,
+                                     'root': root_part}
+        self.mock_ibd.return_value = True
+        calls = [mock.call(root_part),
+                 mock.call(swap_part),
+                 mock.call(ephemeral_part)]
+        res = disk_utils.work_on_disk(self.dev, self.root_mb,
+                                      self.swap_mb, ephemeral_mb,
+                                      ephemeral_format,
+                                      None, self.node_uuid)
+        self.assertEqual(self.mock_ibd.call_args_list, calls)
+        self.mock_mp.assert_called_once_with(self.dev, self.root_mb,
+                                             self.swap_mb, ephemeral_mb,
+                                             self.configdrive_mb,
+                                             self.node_uuid, commit=True,
+                                             boot_option="netboot",
+                                             boot_mode="bios",
+                                             disk_label=None,
+                                             cpu_arch="")
+        self.assertEqual(root_part, res['partitions']['root'])
+        self.assertEqual('uuid', res['root uuid'])
+        self.assertFalse(mock_populate.called)
+
+    @mock.patch.object(utils, 'mkfs', lambda fs, path, label=None: None)
+    @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
     @mock.patch.object(disk_utils, 'populate_image', lambda image_path,
                        root_path, conv_flags=None: None)
     def test_gpt_disk_label(self):
