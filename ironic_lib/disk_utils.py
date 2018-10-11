@@ -501,7 +501,8 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         no ephemeral partition will be created.
     :param ephemeral_format: The type of file system to format the ephemeral
         partition.
-    :param image_path: Path for the instance's disk image.
+    :param image_path: Path for the instance's disk image. If ``None``,
+        the root partition is prepared but not populated.
     :param node_uuid: node's uuid. Used for logging.
     :param preserve_ephemeral: If True, no filesystem is written to the
         ephemeral block device, preserving whatever content it had (if the
@@ -526,6 +527,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         'root uuid': UUID of root partition
         'efi system partition uuid': UUID of the uefi system partition
         (if boot mode is uefi).
+        `partitions`: mapping of partition types to their device paths.
         NOTE: If key exists but value is None, it means partition doesn't
         exist.
     """
@@ -595,9 +597,13 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         if configdrive_file:
             utils.unlink_without_raise(configdrive_file)
 
-    populate_image(image_path, root_part, conv_flags=conv_flags)
-    LOG.info("Image for %(node)s successfully populated",
-             {'node': node_uuid})
+    if image_path is not None:
+        populate_image(image_path, root_part, conv_flags=conv_flags)
+        LOG.info("Image for %(node)s successfully populated",
+                 {'node': node_uuid})
+    else:
+        LOG.debug("Root partition for %s was created, but not populated",
+                  node_uuid)
 
     if swap_part:
         utils.mkfs(fs='swap', path=swap_part, label='swap1')
@@ -631,7 +637,7 @@ def work_on_disk(dev, root_mb, swap_mb, ephemeral_mb, ephemeral_format,
         with excutils.save_and_reraise_exception():
             LOG.error("Failed to detect %s", part)
 
-    return uuids_to_return
+    return dict(partitions=part_dict, **uuids_to_return)
 
 
 def list_opts():
