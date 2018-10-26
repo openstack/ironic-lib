@@ -9,14 +9,16 @@
       - publish-openstack-docs-pti
     check:
       jobs:
-        - ironic-lib-tempest-partition-agent_ipmitool
-        - ironic-lib-tempest-partition-pxe_ipmitool
-        - ironic-lib-tempest-wholedisk-agent_ipmitool
-        - ironic-lib-tempest-wholedisk-pxe_ipmitool
+        - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
+        - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
     gate:
       queue: ironic
       jobs:
-        - ironic-lib-tempest-partition-agent_ipmitool
-        - ironic-lib-tempest-partition-pxe_ipmitool
-        - ironic-lib-tempest-wholedisk-agent_ipmitool
-        - ironic-lib-tempest-wholedisk-pxe_ipmitool
+        - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
+        - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
