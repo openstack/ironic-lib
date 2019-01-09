@@ -1246,6 +1246,11 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
         mock_execute.assert_has_calls([
             mock.call('sgdisk', '-n', '0:-64MB:0', self.dev,
                       run_as_root=True),
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', self.dev, attempts=10, run_as_root=True),
+            mock.call('sgdisk', '-v', self.dev, run_as_root=True),
+
             mock.call('udevadm', 'settle'),
             mock.call('test', '-e', expected_part, attempts=15,
                       check_exit_code=[0], delay_on_retry=True)
@@ -1347,6 +1352,10 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
                                     '-0', run_as_root=True)
         mock_execute.assert_has_calls([
             parted_call,
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', self.dev, attempts=10, run_as_root=True),
+            mock.call('sgdisk', '-v', self.dev, run_as_root=True),
             mock.call('udevadm', 'settle'),
             mock.call('test', '-e', expected_part, attempts=15,
                       check_exit_code=[0], delay_on_retry=True)
@@ -1443,10 +1452,17 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
                                self.node_uuid, self.dev, config_url)
 
         mock_get_configdrive.assert_called_with(config_url, self.node_uuid)
-        mock_execute.assert_called_with('parted', '-a', 'optimal', '-s', '--',
-                                        self.dev, 'mkpart', 'primary',
-                                        'fat32', '-64MiB', '-0',
-                                        run_as_root=True)
+        mock_execute.assert_has_calls([
+            mock.call('parted', '-a', 'optimal', '-s', '--',
+                      self.dev, 'mkpart', 'primary',
+                      'fat32', '-64MiB', '-0',
+                      run_as_root=True),
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', self.dev, attempts=10, run_as_root=True),
+            mock.call('sgdisk', '-v', self.dev, run_as_root=True),
+        ])
+
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
