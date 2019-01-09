@@ -859,6 +859,25 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                 utils.execute('parted', '-a', 'optimal', '-s', '--', device,
                               'mkpart', 'primary', 'fat32', startlimit,
                               endlimit, run_as_root=True)
+            # Parted uses fsync to tell the kernel to sync file io
+            # however on ramdisks in ramfs, this is an explicit no-op.
+            # Explicitly call sync so when the the kernel attempts to read
+            # the partition table from disk, it is less likely that the write
+            # is still in buffer cache pending write to disk.
+            LOG.debug('Explicitly calling sync to force buffer/cache flush.')
+            utils.execute('sync')
+            # Make sure any additions to the partitioning are reflected in the
+            # kernel.
+            LOG.debug('Waiting until udev event queue is empty')
+            utils.execute('udevadm', 'settle')
+            try:
+                utils.execute('partprobe', device, run_as_root=True,
+                              attempts=CONF.disk_utils.partprobe_attempts)
+                # Also verify that the partitioning is correct now.
+                utils.execute('sgdisk', '-v', device, run_as_root=True)
+            except processutils.ProcessExecutionError as exc:
+                LOG.warning('Failed to verify GPT partitioning after creating '
+                            'the configdrive partition: %s', exc)
 
             upd_parts = set(part['number'] for part in list_partitions(device))
             new_part = set(upd_parts) - set(cur_parts)
