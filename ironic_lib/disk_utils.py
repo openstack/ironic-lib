@@ -67,7 +67,7 @@ CONF.register_opts(opts, group='disk_utils')
 LOG = logging.getLogger(__name__)
 
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
-                              "([\d\.]+)MiB:([\d\.]+)MiB:(\w*)::(\w*)")
+                              "([\d\.]+)MiB:([\d\.]+)MiB:(\w*):(.*):(.*);")
 
 CONFIGDRIVE_LABEL = "config-2"
 MAX_CONFIG_DRIVE_SIZE_MB = 64
@@ -84,7 +84,8 @@ def list_partitions(device):
 
     :param device: The device path.
     :returns: list of dictionaries (one per partition) with keys:
-              number, start, end, size (in MiB), filesystem, flags
+              number, start, end, size (in MiB), filesystem, partition_name,
+              flags
     """
     output = utils.execute(
         'parted', '-s', '-m', device, 'unit', 'MiB', 'print',
@@ -93,7 +94,8 @@ def list_partitions(device):
         output = output.decode("utf-8")
     lines = [line for line in output.split('\n') if line.strip()][2:]
     # Example of line: 1:1.00MiB:501MiB:500MiB:ext4::boot
-    fields = ('number', 'start', 'end', 'size', 'filesystem', 'flags')
+    fields = ('number', 'start', 'end', 'size', 'filesystem', 'partition_name',
+              'flags')
     result = []
     for line in lines:
         match = _PARTED_PRINT_RE.match(line)
