@@ -103,3 +103,11 @@ class FileSystemNotSupported(IronicException):
 
 class InvalidMetricConfig(IronicException):
     message = _("Invalid value for metrics config option: %(reason)s")
+
+
+class ServiceLookupFailure(IronicException):
+    message = _("Cannot find %(service)s service through multicast")
+
+
+class ServiceRegistrationFailure(IronicException):
+    message = _("Cannot register %(service)s service: %(error)s")
