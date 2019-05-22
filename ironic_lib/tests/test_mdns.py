@@ -153,7 +153,7 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=8080,
-            properties={'path': '/baremetal'}
+            properties={b'path': b'/baremetal'}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -168,7 +168,7 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=8080,
-            properties={'path': '/baremetal', 'protocol': 'http'}
+            properties={b'path': b'/baremetal', b'protocol': b'http'}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -183,12 +183,43 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=80,
-            properties={'ipa_debug': True}
+            properties={b'ipa_debug': True}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
         self.assertEqual('http://192.168.1.1:80', endp)
         self.assertEqual({'ipa_debug': True}, params)
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+
+    def test_binary_data(self, mock_zc):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            address=socket.inet_aton('192.168.1.1'),
+            port=80,
+            properties={b'ipa_debug': True, b'binary': b'\xe2\x28\xa1'}
+        )
+
+        endp, params = mdns.get_endpoint('baremetal')
+        self.assertEqual('http://192.168.1.1:80', endp)
+        self.assertEqual({'ipa_debug': True, 'binary': b'\xe2\x28\xa1'},
+                         params)
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+
+    def test_invalid_key(self, mock_zc):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            address=socket.inet_aton('192.168.1.1'),
+            port=80,
+            properties={b'ipa_debug': True, b'\xc3\x28': b'value'}
+        )
+
+        self.assertRaisesRegex(exception.ServiceLookupFailure,
+                               'Cannot decode key',
+                               mdns.get_endpoint, 'baremetal')
         mock_zc.return_value.get_service_info.assert_called_once_with(
             'baremetal._openstack._tcp.local.',
             'baremetal._openstack._tcp.local.'

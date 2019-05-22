@@ -154,7 +154,27 @@ class Zeroconf(object):
 
         # TODO(dtantsur): IPv6 support
         address = socket.inet_ntoa(info.address)
-        properties = info.properties.copy()
+        properties = {}
+        for key, value in info.properties.items():
+            try:
+                if isinstance(key, bytes):
+                    key = key.decode('utf-8')
+            except UnicodeError as exc:
+                raise exception.ServiceLookupFailure(
+                    _('Invalid properties for service %(svc)s. Cannot decode '
+                      'key %(key)r: %(exc)r') %
+                    {'svc': service_type, 'key': key, 'exc': exc})
+
+            try:
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8')
+            except UnicodeError as exc:
+                LOG.debug('Cannot convert value %(value)r for key %(key)s '
+                          'to string, assuming binary: %(exc)s',
+                          {'key': key, 'value': value, 'exc': exc})
+
+            properties[key] = value
+
         path = properties.pop('path', '')
         protocol = properties.pop('protocol', None)
         if not protocol:
