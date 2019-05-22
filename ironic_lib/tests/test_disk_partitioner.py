@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import eventlet
 import mock
 from testtools.matchers import HasLength
 
@@ -21,6 +20,9 @@ from ironic_lib import disk_partitioner
 from ironic_lib import exception
 from ironic_lib.tests import base
 from ironic_lib import utils
+
+
+CONF = disk_partitioner.CONF
 
 
 class DiskPartitionerTestCase(base.IronicLibTestCase):
@@ -99,12 +101,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             'fuser', '/dev/fake', run_as_root=True,
             check_exit_code=[0, 1])
 
-    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_commit_with_device_is_busy_once(self, mock_utils_exc,
                                              mock_disk_partitioner_exec):
+        CONF.set_override('check_device_interval', 0, group='disk_partitioner')
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
                            'extra_flags': None,
@@ -134,12 +136,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             check_exit_code=[0, 1])
         self.assertEqual(2, mock_utils_exc.call_count)
 
-    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_commit_with_device_is_always_busy(self, mock_utils_exc,
                                                mock_disk_partitioner_exec):
+        CONF.set_override('check_device_interval', 0, group='disk_partitioner')
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
                            'extra_flags': None,
@@ -169,13 +171,12 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
             check_exit_code=[0, 1])
         self.assertEqual(20, mock_utils_exc.call_count)
 
-    # Mock the eventlet.greenthread.sleep for the looping_call
-    @mock.patch.object(eventlet.greenthread, 'sleep', lambda seconds: None)
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
                        autospec=True)
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_commit_with_device_disconnected(self, mock_utils_exc,
                                              mock_disk_partitioner_exec):
+        CONF.set_override('check_device_interval', 0, group='disk_partitioner')
         dp = disk_partitioner.DiskPartitioner('/dev/fake')
         fake_parts = [(1, {'boot_flag': None,
                            'extra_flags': None,
