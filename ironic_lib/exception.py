@@ -49,6 +49,11 @@ CONF = cfg.CONF
 CONF.register_opts(exc_log_opts, group='ironic_lib')
 
 
+def list_opts():
+    """Entry point for oslo-config-generator."""
+    return [('ironic_lib', exc_log_opts)]
+
+
 def _ensure_exception_kwargs_serializable(exc_class_name, kwargs):
     """Ensure that kwargs are serializable
 
