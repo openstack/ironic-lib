@@ -21,6 +21,7 @@ import socket
 import time
 
 from oslo_config import cfg
+from oslo_config import types as cfg_types
 from oslo_log import log as logging
 from six.moves.urllib import parse
 import zeroconf
@@ -38,10 +39,12 @@ opts = [
     cfg.IntOpt('lookup_attempts',
                min=1, default=3,
                help='Number of attempts to lookup a service.'),
-    cfg.DictOpt('params',
-                default={},
-                help='Additional parameters to pass for the registered '
-                     'service.'),
+    cfg.Opt('params',
+            # This is required for values that contain commas.
+            type=cfg_types.Dict(cfg_types.String(quotes=True)),
+            default={},
+            help='Additional parameters to pass for the registered '
+                 'service.'),
 ]
 
 CONF = cfg.CONF
