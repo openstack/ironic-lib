@@ -45,6 +45,9 @@ opts = [
             default={},
             help='Additional parameters to pass for the registered '
                  'service.'),
+    cfg.ListOpt('interfaces',
+                help='List of IP addresses of interfaces to use for mDNS. '
+                     'Defaults to all interfaces on the system.'),
 ]
 
 CONF = cfg.CONF
@@ -71,7 +74,9 @@ class Zeroconf(object):
 
     def __init__(self):
         """Initialize and start the mDNS server."""
-        self._zc = zeroconf.Zeroconf()
+        interfaces = (CONF.mdns.interfaces if CONF.mdns.interfaces
+                      else zeroconf.InterfaceChoice.All)
+        self._zc = zeroconf.Zeroconf(interfaces=interfaces)
         self._registered = []
 
     def register_service(self, service_type, endpoint, params=None):

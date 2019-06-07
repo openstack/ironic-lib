@@ -29,6 +29,8 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
     def test_ok(self, mock_zc):
         zc = mdns.Zeroconf()
         zc.register_service('baremetal', 'https://127.0.0.1/baremetal')
+        mock_zc.assert_called_once_with(
+            interfaces=zeroconf.InterfaceChoice.All)
         mock_zc.return_value.register_service.assert_called_once_with(mock.ANY)
         info = mock_zc.return_value.register_service.call_args[0][0]
         self.assertEqual('_openstack._tcp.local.', info.type)
@@ -65,6 +67,19 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         mock_zc.return_value.register_service.assert_called_with(mock.ANY)
         self.assertEqual(4, mock_zc.return_value.register_service.call_count)
         mock_sleep.assert_has_calls([mock.call(i) for i in (0.1, 0.2, 0.4)])
+
+    def test_with_interfaces(self, mock_zc):
+        CONF.set_override('interfaces', ['10.0.0.1', '192.168.1.1'],
+                          group='mdns')
+        zc = mdns.Zeroconf()
+        zc.register_service('baremetal', 'https://127.0.0.1/baremetal')
+        mock_zc.assert_called_once_with(interfaces=['10.0.0.1', '192.168.1.1'])
+        mock_zc.return_value.register_service.assert_called_once_with(mock.ANY)
+        info = mock_zc.return_value.register_service.call_args[0][0]
+        self.assertEqual('_openstack._tcp.local.', info.type)
+        self.assertEqual('baremetal._openstack._tcp.local.', info.name)
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.address))
+        self.assertEqual({'path': '/baremetal'}, info.properties)
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
     def test_failure(self, mock_sleep, mock_zc):
