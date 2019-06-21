@@ -26,7 +26,6 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Ironic Lib'
 copyright = u'OpenStack Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -64,15 +63,12 @@ html_theme = 'openstackdocs'
 
 # openstackdocstheme options
 repository_name = 'openstack/ironic-lib'
-bug_project = 'ironic-lib'
-bug_tag = ''
-
-# Must set this variable to include year, month, day, hours, and minutes.
-html_last_updated_fmt = '%Y-%m-%d %H:%M'
+use_storyboard = True
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = '%sdoc' % project
+htmlhelp_basename = 'ironic-libdoc'
 
+latex_use_xindy = False
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass
@@ -80,8 +76,8 @@ htmlhelp_basename = '%sdoc' % project
 latex_documents = [
     (
         'index',
-        '%s.tex' % project,
-        u'%s Documentation' % project,
+        'doc-ironic-lib.tex',
+        u'Ironic Lib Documentation',
         u'OpenStack Foundation',
         'manual'
     ),
