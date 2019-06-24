@@ -428,6 +428,68 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
                                                     conv_flags='sparse')
 
 
+class GetUEFIDiskIdentifierTestCase(base.IronicLibTestCase):
+
+    def setUp(self):
+        super(GetUEFIDiskIdentifierTestCase, self).setUp()
+        self.dev = '/dev/fake'
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_get_uefi_disk_identifier_uefi_bootable_image(self, mock_execute):
+        mock_execute.return_value = ('', '')
+        fdisk_output = """
+Disk /dev/sda: 931.5 GiB, 1000171331584 bytes, 1953459632 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 262144 bytes / 262144 bytes
+Disklabel type: gpt
+Disk identifier: 73457A6C-3595-4965-8D83-2EA1BD85F327
+
+Device          Start        End    Sectors   Size Type
+/dev/fake-part1        2048    1050623    1048576   512M EFI System
+/dev/fake-part2     1050624 1920172031 1919121408 915.1G Linux filesystem
+/dev/fake-part3  1920172032 1953458175   33286144  15.9G Linux swap
+"""
+        partition_id = '/dev/fake-part1'
+        lsblk_output = 'UUID="ABCD-B05B"\n'
+        part_result = 'ABCD-B05B'
+        mock_execute.side_effect = [(fdisk_output, ''), (lsblk_output, '')]
+        result = disk_utils.get_uefi_disk_identifier(self.dev)
+        self.assertEqual(part_result, result)
+        execute_calls = [
+            mock.call('fdisk', '-l', self.dev, run_as_root=True),
+            mock.call('lsblk', '-PbioUUID', partition_id,
+                      run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_get_uefi_disk_identifier_non_uefi_bootable_image(self,
+                                                              mock_execute):
+        mock_execute.return_value = ('', '')
+        fdisk_output = """
+Disk /dev/vda: 50 GiB, 53687091200 bytes, 104857600 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xb82b9faf
+
+Device     Boot Start       End   Sectors Size Id Type
+/dev/fake-part1  *     2048 104857566 104855519  50G 83 Linux
+"""
+        partition_id = None
+        mock_execute.side_effect = [(fdisk_output, ''),
+                                    processutils.ProcessExecutionError()]
+        self.assertRaises(exception.InstanceDeployFailure,
+                          disk_utils.get_uefi_disk_identifier, self.dev)
+        execute_calls = [
+            mock.call('fdisk', '-l', self.dev, run_as_root=True),
+            mock.call('lsblk', '-PbioUUID', partition_id, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
+
+
 @mock.patch.object(utils, 'execute', autospec=True)
 class MakePartitionsTestCase(base.IronicLibTestCase):
 

@@ -159,6 +159,41 @@ def get_disk_identifier(dev):
     return disk_identifier[0]
 
 
+def get_uefi_disk_identifier(dev):
+    """Get the uuid from the disk being exposed by the ramdisk.
+
+    This uuid is appended to the pxe config which will then be set as the root
+    and load the bootx64.efi file using chainloader and boot the machine.
+    This is helpful in deployments to nodes with multiple disks.
+
+    https://wiki.gentoo.org/wiki/GRUB2/Chainloading
+
+    :param dev: Path for the already populated disk device.
+    :raises InstanceDeployFailure: Image is not UEFI bootable.
+    :returns: The UUID of the partition.
+    """
+    partition_id = None
+    try:
+        report, _ = utils.execute('fdisk', '-l', dev, run_as_root=True)
+    except processutils.ProcessExecutionError as e:
+        msg = _('Failed to find the partition on the disk %s ') % e
+        LOG.error(msg)
+        raise exception.InstanceDeployFailure(msg)
+    for line in report.splitlines():
+        if line.startswith(dev) and 'EFI System' in line:
+            vals = line.split()
+            partition_id = vals[0]
+    try:
+        lsblk_output, _ = utils.execute('lsblk', '-PbioUUID', partition_id,
+                                        run_as_root=True)
+        disk_identifier = lsblk_output.split("=")[1].strip()
+        disk_identifier = disk_identifier.strip('"')
+    except processutils.ProcessExecutionError as e:
+        raise exception.InstanceDeployFailure("Image is not UEFI bootable. "
+                                              "Error: %s " % e)
+    return disk_identifier
+
+
 def is_iscsi_device(dev, node_uuid):
     """check whether the device path belongs to an iscsi device. """
 
