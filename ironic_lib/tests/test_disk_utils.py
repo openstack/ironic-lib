@@ -1432,7 +1432,7 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
                         self.node_uuid)
             expected_part = '%s-part4' % self.dev
         elif is_nvme_device:
-            self.dev = '/dev/nvmefake'
+            self.dev = '/dev/nvmefake0'
             expected_part = '%sp4' % self.dev
         else:
             expected_part = '/dev/fake4'
