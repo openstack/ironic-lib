@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Fixes an issue where CRC errors in the GPT partition information would
+    cause cleaning to fail. A similar issue was previously encountered with
+    ironic-python-agent. See `Story 1737556 <https://storyboard.openstack.org/#!/story/1737556>`_
+    for details.
