@@ -399,7 +399,14 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         fuser_cmd = ['fuser', 'fake-dev']
         fuser_call = mock.call(*fuser_cmd, run_as_root=True,
                                check_exit_code=[0, 1])
-        mock_exc.assert_has_calls([parted_call, fuser_call])
+
+        sync_calls = [mock.call('sync'),
+                      mock.call('udevadm', 'settle'),
+                      mock.call('partprobe', self.dev, attempts=10,
+                                run_as_root=True),
+                      mock.call('sgdisk', '-v', self.dev, run_as_root=True)]
+
+        mock_exc.assert_has_calls([parted_call, fuser_call] + sync_calls)
 
     def test_make_partitions(self, mock_exc):
         self._test_make_partitions(mock_exc, boot_option="netboot")
@@ -605,6 +612,9 @@ class PopulateImageTestCase(base.IronicLibTestCase):
         self.assertFalse(mock_dd.called)
 
 
+# NOTE(TheJulia): _trigger_device_rescan is systemwide thus pointless
+# to execute in the file test case. Also, CI unit test jobs lack sgdisk.
+@mock.patch.object(disk_utils, '_trigger_device_rescan', lambda *_: None)
 @mock.patch.object(utils, 'wait_for_disk_to_become_available', lambda *_: None)
 @mock.patch.object(disk_utils, 'is_block_device', lambda d: True)
 @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
