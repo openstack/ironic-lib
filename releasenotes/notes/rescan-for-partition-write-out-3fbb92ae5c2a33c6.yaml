@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Fixes an issue with the ``disk_utils`` method ``make_partitions``,
+    which is utilized to facilitate the write-out of partition images to disk.
+    Previously when this method was invoked on a ramdisk, the partition may
+    not have been found.
