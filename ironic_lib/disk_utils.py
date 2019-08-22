@@ -411,7 +411,20 @@ def destroy_disk_metadata(dev, node_uuid):
                 utils.execute('wipefs', '--all', dev,
                               run_as_root=True,
                               use_standard_locale=True)
-
+    # NOTE(TheJulia): sgdisk attempts to load and make sense of the
+    # partition tables in advance of wiping the partition data.
+    # This means when a CRC error is found, sgdisk fails before
+    # erasing partition data.
+    # This is the same bug as
+    # https://bugs.launchpad.net/ironic-python-agent/+bug/1737556
+    dd_device = 'of=%s' % dev
+    gpt_backup = get_dev_block_size(dev) - 33
+    dd_seek = 'seek=%i' % gpt_backup
+    utils.execute('dd', 'bs=512', 'if=/dev/zero', dd_device, 'count=33',
+                  run_as_root=True, use_standard_locale=True)
+    utils.execute('dd', 'bs=512', 'if=/dev/zero', dd_device, 'count=33',
+                  dd_seek, run_as_root=True, use_standard_locale=True)
+    # Go ahead and let sgdisk run as well.
     utils.execute('sgdisk', '-Z', dev, run_as_root=True,
                   use_standard_locale=True)
 
