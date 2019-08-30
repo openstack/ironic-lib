@@ -51,10 +51,19 @@ opts = [
     cfg.StrOpt('dd_block_size',
                default='1M',
                help='Block size to use when writing to the nodes disk.'),
+    # TODO(dtantsur): remove in Ussuri, then clean up ironic from it.
     cfg.IntOpt('iscsi_verify_attempts',
                default=3,
                help='Maximum attempts to verify an iSCSI connection is '
-                    'active, sleeping 1 second between attempts.'),
+                    'active, sleeping 1 second between attempts.',
+               deprecated_for_removal=True,
+               deprecated_reason='Split into [iscsi]verify_attempts and '
+                                 'partition_detection_attempts.'),
+    cfg.IntOpt('partition_detection_attempts',
+               min=1,
+               help='Maximum attempts to detect a newly created partition. '
+                    'Defaults to iscsi_verify_attempts, will default to 3 '
+                    'when it is removed.'),
     cfg.IntOpt('partprobe_attempts',
                default=10,
                help='Maximum number of attempts to try to read the '
@@ -335,7 +344,9 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
 
 def is_block_device(dev):
     """Check whether a device is block or not."""
-    attempts = CONF.disk_utils.iscsi_verify_attempts
+    attempts = (CONF.disk_utils.iscsi_verify_attempts
+                if CONF.disk_utils.partition_detection_attempts is None
+                else CONF.disk_utils.partition_detection_attempts)
     for attempt in range(attempts):
         try:
             s = os.stat(dev)

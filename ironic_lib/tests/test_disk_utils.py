@@ -999,6 +999,25 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                           disk_utils.is_block_device, device)
         mock_os.assert_has_calls([mock.call(device)] * 3)
 
+    @mock.patch.object(os, 'stat', autospec=True)
+    def test_is_block_device_attempts(self, mock_os):
+        CONF.set_override('partition_detection_attempts', 2,
+                          group='disk_utils')
+        device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
+        mock_os.side_effect = OSError
+        self.assertRaises(exception.InstanceDeployFailure,
+                          disk_utils.is_block_device, device)
+        mock_os.assert_has_calls([mock.call(device)] * 2)
+
+    @mock.patch.object(os, 'stat', autospec=True)
+    def test_is_block_device_deprecated_attempts(self, mock_os):
+        CONF.set_override('iscsi_verify_attempts', 4, group='disk_utils')
+        device = '/dev/disk/by-path/ip-1.2.3.4:5678-iscsi-iqn.fake-lun-9'
+        mock_os.side_effect = OSError
+        self.assertRaises(exception.InstanceDeployFailure,
+                          disk_utils.is_block_device, device)
+        mock_os.assert_has_calls([mock.call(device)] * 4)
+
     @mock.patch.object(imageutils, 'QemuImgInfo', autospec=True)
     @mock.patch.object(os.path, 'exists', return_value=False, autospec=True)
     def test_qemu_img_info_path_doesnt_exist(self, path_exists_mock,
