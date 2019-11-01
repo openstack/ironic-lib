@@ -9,7 +9,9 @@
     check:
       jobs:
         - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
         - ironic-lib-partition-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-direct-tinyipa-src
         - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src-python2
         - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
         - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
@@ -17,7 +19,9 @@
       queue: ironic
       jobs:
         - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
         - ironic-lib-partition-bios-ipmi-direct-tinyipa-src-python2
+        - ironic-lib-partition-bios-ipmi-direct-tinyipa-src
         - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src-python2
         - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
         - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
