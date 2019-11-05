@@ -17,6 +17,7 @@ https://review.opendev.org/651222.
 """
 
 import collections
+import ipaddress
 import socket
 import time
 
@@ -28,6 +29,7 @@ import zeroconf
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
+from ironic_lib import utils
 
 
 opts = [
@@ -59,7 +61,7 @@ LOG = logging.getLogger(__name__)
 
 _MDNS_DOMAIN = '_openstack._tcp.local.'
 _endpoint = collections.namedtuple('Endpoint',
-                                   ['ip', 'hostname', 'port', 'params'])
+                                   ['addresses', 'hostname', 'port', 'params'])
 
 
 class Zeroconf(object):
@@ -91,26 +93,18 @@ class Zeroconf(object):
         :raises: :exc:`.ServiceRegistrationFailure` if the service cannot be
             registered, e.g. because of conflicts.
         """
-        try:
-            parsed = _parse_endpoint(endpoint)
-        except socket.error as ex:
-            msg = (_("Cannot resolve the host name of %(endpoint)s: "
-                     "%(error)s. Hint: only IPv4 is supported for now.") %
-                   {'endpoint': endpoint, 'error': ex})
-            raise exception.ServiceRegistrationFailure(
-                service=service_type, error=msg)
+        parsed = _parse_endpoint(endpoint, service_type)
 
         all_params = CONF.mdns.params.copy()
         if params:
             all_params.update(params)
         all_params.update(parsed.params)
 
-        # TODO(dtantsur): allow overriding TTL values via configuration when
-        # https://github.com/jstasiak/python-zeroconf/commit/ecc021b7a3cec863eed5a3f71a1f28e3026c25b0
-        # is released.
+        # TODO(dtantsur): allow overriding TTL values via configuration
         info = zeroconf.ServiceInfo(_MDNS_DOMAIN,
                                     '%s.%s' % (service_type, _MDNS_DOMAIN),
-                                    parsed.ip, parsed.port,
+                                    addresses=parsed.addresses,
+                                    port=parsed.port,
                                     properties=all_params,
                                     server=parsed.hostname)
 
@@ -138,13 +132,16 @@ class Zeroconf(object):
 
         self._registered.append(info)
 
-    def get_endpoint(self, service_type):
+    def get_endpoint(self, service_type, skip_loopback=True,
+                     skip_link_local=False):
         """Get an endpoint and its properties from mDNS.
 
         If the requested endpoint is already in the built-in server cache, and
         its TTL is not exceeded, the cached value is returned.
 
         :param service_type: OpenStack service type.
+        :param skip_loopback: Whether to ignore loopback addresses.
+        :param skip_link_local: Whether to ignore link local V6 addresses.
         :returns: tuple (endpoint URL, properties as a dict).
         :raises: :exc:`.ServiceLookupFailure` if the service cannot be found.
         """
@@ -160,8 +157,28 @@ class Zeroconf(object):
                 time.sleep(delay)
                 delay *= 2
 
-        # TODO(dtantsur): IPv6 support
-        address = socket.inet_ntoa(info.address)
+        all_addr = info.parsed_addresses()
+
+        # Try to find the first routable address
+        for addr in all_addr:
+            try:
+                loopback = ipaddress.ip_address(addr).is_loopback
+            except ValueError:
+                LOG.debug('Skipping invalid IP address %s', addr)
+                continue
+            else:
+                if loopback and skip_loopback:
+                    LOG.debug('Skipping loopback IP address %s', addr)
+                    continue
+
+            if utils.get_route_source(addr, skip_link_local):
+                address = addr
+                break
+            else:
+                LOG.warning('None of addresses %s seem routable, using '
+                            'the first one', all_addr)
+                address = all_addr[0]
+
         properties = {}
         for key, value in info.properties.items():
             try:
@@ -195,6 +212,8 @@ class Zeroconf(object):
             # Local hostname means that the catalog lists an IP address,
             # so use it
             host = address
+            if int(ipaddress.ip_address(host).version) == 6:
+                host = '[%s]' % host
         else:
             # Otherwise use the provided hostname.
             host = info.server.rstrip('.')
@@ -240,7 +259,7 @@ def get_endpoint(service_type):
         return zc.get_endpoint(service_type)
 
 
-def _parse_endpoint(endpoint):
+def _parse_endpoint(endpoint, service_type=None):
     params = {}
     url = parse.urlparse(endpoint)
     port = url.port
@@ -251,16 +270,30 @@ def _parse_endpoint(endpoint):
         else:
             port = 80
 
+    addresses = []
     hostname = url.hostname
-    # FIXME(dtantsur): the zeroconf library does not support IPv6, use IPv4
-    # only resolving for now.
-    ip = socket.gethostbyname(hostname)
-    if ip == hostname:
-        # we need a host name for the service record. if what we have in
-        # the catalog is an IP address, use the local hostname instead
-        hostname = None
-    # zeroconf requires addresses in network format (and see above re IPv6)
-    ip = socket.inet_aton(ip)
+    try:
+        infos = socket.getaddrinfo(hostname, port, 0, socket.IPPROTO_TCP)
+    except socket.error as exc:
+        raise exception.ServiceRegistrationFailure(
+            service=service_type,
+            error=_('Could not resolve hostname %(host)s: %(exc)s') %
+            {'host': hostname, 'exc': exc})
+
+    for info in infos:
+        ip = info[4][0]
+        if ip == hostname:
+            # we need a host name for the service record. if what we have in
+            # the catalog is an IP address, use the local hostname instead
+            hostname = None
+        # zeroconf requires addresses in network format
+        ip = socket.inet_pton(info[0], ip)
+        if ip not in addresses:
+            addresses.append(ip)
+    if not addresses:
+        raise exception.ServiceRegistrationFailure(
+            service=service_type,
+            error=_('No suitable addresses found for %s') % url.hostname)
 
     # avoid storing information that can be derived from existing data
     if url.path not in ('', '/'):
@@ -274,7 +307,7 @@ def _parse_endpoint(endpoint):
     if hostname is not None and not hostname.endswith('.'):
         hostname += '.'
 
-    return _endpoint(ip, hostname, port, params)
+    return _endpoint(addresses, hostname, port, params)
 
 
 def list_opts():

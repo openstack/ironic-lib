@@ -20,6 +20,7 @@
 
 import copy
 import errno
+import ipaddress
 import logging
 import os
 import re
@@ -503,3 +504,25 @@ def wait_for_disk_to_become_available(device):
                   'locks for device %(device)s. Timed out waiting for '
                   'completion.')
                 % {'device': device, 'fuser_err': stderr[0]})
+
+
+def get_route_source(dest, ignore_link_local=True):
+    """Get the IP address to send packages to destination."""
+    try:
+        out, _err = execute('ip', 'route', 'get', dest)
+    except (EnvironmentError, processutils.ProcessExecutionError) as e:
+        LOG.warning('Cannot get route to host %(dest)s: %(err)s',
+                    {'dest': dest, 'err': e})
+        return
+
+    try:
+        source = out.strip().split('\n')[0].split('src')[1].split()[0]
+        if (ipaddress.ip_address(six.u(source)).is_link_local
+                and ignore_link_local):
+            LOG.debug('Ignoring link-local source to %(dest)s: %(rec)s',
+                      {'dest': dest, 'rec': out})
+            return
+        return source
+    except (IndexError, ValueError):
+        LOG.debug('No route to host %(dest)s, route record: %(rec)s',
+                  {'dest': dest, 'rec': out})
