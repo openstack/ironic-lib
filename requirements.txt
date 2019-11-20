@@ -12,5 +12,4 @@ oslo.utils>=3.33.0 # Apache-2.0
 requests>=2.14.2 # Apache-2.0
 six>=1.10.0 # MIT
 oslo.log>=3.36.0 # Apache-2.0
-zeroconf>=0.19.1,<0.20;python_version=='2.7' # LGPL
 zeroconf>=0.19.1;python_version>='3.0' # LGPL

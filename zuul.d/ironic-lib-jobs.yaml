@@ -35,14 +35,6 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src-python2
-    parent: ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
-    timeout: 7200
-    vars:
-      devstack_localrc:
-        USE_PYTHON3: False
-
-- job:
     name: ironic-lib-partition-bios-ipmi-direct-tinyipa-src
     parent: ironic-lib-base
     timeout: 7200
@@ -58,26 +50,10 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-partition-bios-ipmi-direct-tinyipa-src-python2
-    parent: ironic-lib-partition-bios-ipmi-direct-tinyipa-src
-    timeout: 7200
-    vars:
-      devstack_localrc:
-        USE_PYTHON3: False
-
-
-- job:
     name: ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
     parent: ironic-lib-base
     timeout: 7200
 
-
-- job:
-    name: ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src-python2
-    parent: ironic-lib-base
-    timeout: 7200
-    vars:
-        USE_PYTHON3: False
 
 - job:
     name: ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
