@@ -27,5 +27,4 @@
         - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
     post:
       jobs:
-        - ironic-python-agent-buildimage-coreos
-        - ironic-python-agent-buildimage-tinyipa
+        - ironic-python-agent-build-image-tinyipa
