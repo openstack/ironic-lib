@@ -28,7 +28,6 @@ also, you might not see any output until tox is complete.
 
 Information about tox can be found here: http://testrun.org/tox/latest/
 
-
 Run The Tests in One Environment
 --------------------------------
 
@@ -41,9 +40,20 @@ Tox will run your entire test suite in the environments specified in the project
 To run the test suite in just one of the environments in envlist execute::
 
   $ tox -e <env>
-so for example, *run the test suite in py26*::
+so for example, *run the test suite with the default OS version of Python 3*::
 
-  $ tox -e py26
+  $ tox -e py3
+
+or select a specific version, *run the test suite using Python 3.6*::
+
+  $ tox -e py36
+
+Other useful tox options that can be specified when running the test suite are::
+
+  -v to increase verbosity of the output, can be repeated  up to three times
+  based on the desired verbosity level
+
+  -r to recreate the virtual environment from scratch
 
 Run One Test
 ------------
@@ -61,7 +71,7 @@ run individual tests with the following syntax::
   $ tox -e <env> -- path.to.module:Class.test
 so for example, *run the cpu_limited test in Nova*::
 
-  $ tox -e py27 -- nova.tests.test_claims:ClaimTestCase.test_cpu_unlimited
+  $ tox -e py36 -- nova.tests.test_claims:ClaimTestCase.test_cpu_unlimited
 
 if nose is in tox.ini, for example::
 
@@ -74,15 +84,16 @@ run individual tests with the following syntax::
   $ tox -e <env> -- --tests path.to.module:Class.test
 so for example, *run the list test in Glance*::
 
-  $ tox -e py27 -- --tests glance.tests.unit.test_auth.py:TestImageRepoProxy.test_list
+  $ tox -e py36 -- --tests glance.tests.unit.test_auth.py:TestImageRepoProxy.test_list
 
 Need More Info?
 ---------------
 
 More information about testr: https://wiki.openstack.org/wiki/Testr
 
-More information about nose: https://nose.readthedocs.org/en/latest/
+More information about tox: https://tox.readthedocs.io/en/latest/
 
+More information about nose: https://nose.readthedocs.org/en/latest/
 
 More information about testing OpenStack code can be found here:
 https://wiki.openstack.org/wiki/Testing
