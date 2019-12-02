@@ -14,10 +14,9 @@
 #    under the License.
 
 import abc
+import functools
 import random
 import time
-
-import six
 
 from ironic_lib.common.i18n import _
 
@@ -46,7 +45,7 @@ class Timer(object):
         :param metrics: The metric logger
         :param name: The metric name
         """
-        if not isinstance(name, six.string_types):
+        if not isinstance(name, str):
             raise TypeError(_("The metric name is expected to be a string. "
                             "Value is %s") % name)
         self.metrics = metrics
@@ -54,7 +53,7 @@ class Timer(object):
         self._start = None
 
     def __call__(self, f):
-        @six.wraps(f)
+        @functools.wraps(f)
         def wrapped(*args, **kwargs):
             start = _time()
             result = f(*args, **kwargs)
@@ -101,7 +100,7 @@ class Counter(object):
         :param name: The metric name
         :param sample_rate: Probabilistic rate at which the values will be sent
         """
-        if not isinstance(name, six.string_types):
+        if not isinstance(name, str):
             raise TypeError(_("The metric name is expected to be a string. "
                             "Value is %s") % name)
 
@@ -116,7 +115,7 @@ class Counter(object):
         self.sample_rate = sample_rate
 
     def __call__(self, f):
-        @six.wraps(f)
+        @functools.wraps(f)
         def wrapped(*args, **kwargs):
             self.metrics.send_counter(
                 self.metrics.get_metric_name(self.name),
@@ -156,14 +155,14 @@ class Gauge(object):
         :param metrics: The metric logger
         :param name: The metric name
         """
-        if not isinstance(name, six.string_types):
+        if not isinstance(name, str):
             raise TypeError(_("The metric name is expected to be a string. "
                             "Value is %s") % name)
         self.metrics = metrics
         self.name = name
 
     def __call__(self, f):
-        @six.wraps(f)
+        @functools.wraps(f)
         def wrapped(*args, **kwargs):
             result = f(*args, **kwargs)
             self.metrics.send_gauge(self.metrics.get_metric_name(self.name),
@@ -178,8 +177,7 @@ def _time():
     return time.time()
 
 
-@six.add_metaclass(abc.ABCMeta)
-class MetricLogger(object):
+class MetricLogger(object, metaclass=abc.ABCMeta):
     """Abstract class representing a metrics logger.
 
     A MetricLogger sends data to a backend (noop or statsd).

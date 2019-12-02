@@ -14,7 +14,6 @@
 #    under the License.
 
 from oslo_config import cfg
-import six
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -62,7 +61,7 @@ def get_metrics_logger(prefix='', backend=None, host=None, delimiter='.'):
     :param delimiter: Delimiter to use for the metrics name.
     :return: The new MetricLogger.
     """
-    if not isinstance(prefix, six.string_types):
+    if not isinstance(prefix, str):
         msg = (_("This metric prefix (%s) is of unsupported type. "
                  "Value should be a string or None")
                % str(prefix))

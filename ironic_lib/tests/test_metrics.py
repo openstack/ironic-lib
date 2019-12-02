@@ -49,24 +49,24 @@ class MockedMetricLogger(metricslib.MetricLogger):
 
 class TestMetricReflection(base.IronicLibTestCase):
     def test_timer_reflection(self):
-        # Ensure our decorator is done correctly (six.wraps) and we can get the
-        # arguments of our decorated function.
+        # Ensure our decorator is done correctly (functools.wraps) and we can
+        # get the arguments of our decorated function.
         expected = ['run', 'timer']
         signature = reflection.get_signature(timer_check)
         parameters = list(signature.parameters)
         self.assertEqual(expected, parameters)
 
     def test_counter_reflection(self):
-        # Ensure our decorator is done correctly (six.wraps) and we can get the
-        # arguments of our decorated function.
+        # Ensure our decorator is done correctly (functools.wraps) and we can
+        # get the arguments of our decorated function.
         expected = ['run', 'counter']
         signature = reflection.get_signature(counter_check)
         parameters = list(signature.parameters)
         self.assertEqual(expected, parameters)
 
     def test_gauge_reflection(self):
-        # Ensure our decorator is done correctly (six.wraps) and we can get the
-        # arguments of our decorated function.
+        # Ensure our decorator is done correctly (functools.wraps) and we can
+        # get the arguments of our decorated function.
         expected = ['run', 'gauge']
         signature = reflection.get_signature(gauge_check)
         parameters = list(signature.parameters)

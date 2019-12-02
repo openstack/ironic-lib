@@ -20,11 +20,11 @@ import collections
 import ipaddress
 import socket
 import time
+from urllib import parse as urlparse
 
 from oslo_config import cfg
 from oslo_config import types as cfg_types
 from oslo_log import log as logging
-from six.moves.urllib import parse
 import zeroconf
 
 from ironic_lib.common.i18n import _
@@ -261,7 +261,7 @@ def get_endpoint(service_type):
 
 def _parse_endpoint(endpoint, service_type=None):
     params = {}
-    url = parse.urlparse(endpoint)
+    url = urlparse.urlparse(endpoint)
     port = url.port
 
     if port is None:

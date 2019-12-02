@@ -24,6 +24,7 @@ import ipaddress
 import logging
 import os
 import re
+from urllib import parse as urlparse
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -32,8 +33,6 @@ from oslo_utils import excutils
 from oslo_utils import specs_matcher
 from oslo_utils import strutils
 from oslo_utils import units
-import six
-from six.moves.urllib import parse
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -195,7 +194,7 @@ def _extract_hint_operator_and_values(hint_expression, hint_name):
         :op: The operator. An empty string in case of None.
         :values: A list of values stripped and converted to lowercase.
     """
-    expression = six.text_type(hint_expression).strip().lower()
+    expression = str(hint_expression).strip().lower()
     if not expression:
         raise ValueError(
             _('Root device hint "%s" expression is empty') % hint_name)
@@ -228,7 +227,7 @@ def _normalize_hint_expression(hint_expression, hint_name):
     :returns: A normalized string.
     """
     hdict = _extract_hint_operator_and_values(hint_expression, hint_name)
-    result = hdict['op'].join([' %s ' % parse.quote(t)
+    result = hdict['op'].join([' %s ' % urlparse.quote(t)
                                for t in hdict['values']])
     return (hdict['op'] + result).strip()
 
@@ -249,7 +248,7 @@ def _append_operator_to_hints(root_device):
         if VALID_ROOT_DEVICE_HINTS[name] is bool:
             continue
 
-        expression = six.text_type(expression)
+        expression = str(expression)
         ast = ROOT_DEVICE_HINTS_GRAMMAR.parseString(expression)
         if len(ast) > 1:
             continue
@@ -290,7 +289,7 @@ def parse_root_device_hints(root_device):
     for name, expression in root_device.items():
         hint_type = VALID_ROOT_DEVICE_HINTS[name]
         if hint_type is str:
-            if not isinstance(expression, six.string_types):
+            if not isinstance(expression, str):
                 raise ValueError(
                     _('Root device hint "%(name)s" is not a string value. '
                       'Hint expression: %(expression)s') %
@@ -517,7 +516,7 @@ def get_route_source(dest, ignore_link_local=True):
 
     try:
         source = out.strip().split('\n')[0].split('src')[1].split()[0]
-        if (ipaddress.ip_address(six.u(source)).is_link_local
+        if (ipaddress.ip_address(source).is_link_local
                 and ignore_link_local):
             LOG.debug('Ignoring link-local source to %(dest)s: %(rec)s',
                       {'dest': dest, 'rec': out})
