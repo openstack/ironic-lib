@@ -101,43 +101,55 @@ class ParseEndpointTestCase(base.IronicLibTestCase):
 
     def test_simple(self):
         endpoint = mdns._parse_endpoint('http://127.0.0.1')
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.ip))
+        self.assertEqual(1, len(endpoint.addresses))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.addresses[0]))
         self.assertEqual(80, endpoint.port)
         self.assertEqual({}, endpoint.params)
         self.assertIsNone(endpoint.hostname)
 
     def test_simple_https(self):
         endpoint = mdns._parse_endpoint('https://127.0.0.1')
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.ip))
+        self.assertEqual(1, len(endpoint.addresses))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.addresses[0]))
         self.assertEqual(443, endpoint.port)
         self.assertEqual({}, endpoint.params)
         self.assertIsNone(endpoint.hostname)
 
     def test_with_path_and_port(self):
         endpoint = mdns._parse_endpoint('http://127.0.0.1:8080/bm')
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.ip))
+        self.assertEqual(1, len(endpoint.addresses))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(endpoint.addresses[0]))
         self.assertEqual(8080, endpoint.port)
         self.assertEqual({'path': '/bm', 'protocol': 'http'}, endpoint.params)
         self.assertIsNone(endpoint.hostname)
 
-    @mock.patch.object(socket, 'gethostbyname', autospec=True)
+    @mock.patch.object(socket, 'getaddrinfo', autospec=True)
     def test_resolve(self, mock_resolve):
-        mock_resolve.return_value = '1.2.3.4'
+        mock_resolve.return_value = [
+            (socket.AF_INET, None, None, None, ('1.2.3.4',)),
+            (socket.AF_INET6, None, None, None, ('::2', 'scope')),
+        ]
         endpoint = mdns._parse_endpoint('http://example.com')
-        self.assertEqual('1.2.3.4', socket.inet_ntoa(endpoint.ip))
+        self.assertEqual(2, len(endpoint.addresses))
+        self.assertEqual('1.2.3.4', socket.inet_ntoa(endpoint.addresses[0]))
+        self.assertEqual('::2', socket.inet_ntop(socket.AF_INET6,
+                                                 endpoint.addresses[1]))
         self.assertEqual(80, endpoint.port)
         self.assertEqual({}, endpoint.params)
         self.assertEqual('example.com.', endpoint.hostname)
-        mock_resolve.assert_called_once_with('example.com')
+        mock_resolve.assert_called_once_with('example.com', 80, mock.ANY,
+                                             socket.IPPROTO_TCP)
 
 
+@mock.patch('ironic_lib.utils.get_route_source', autospec=True)
 @mock.patch('zeroconf.Zeroconf', autospec=True)
 class GetEndpointTestCase(base.IronicLibTestCase):
-    def test_simple(self, mock_zc):
+    def test_simple(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=80,
-            properties={}
+            properties={},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -149,11 +161,46 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         )
         mock_zc.return_value.close.assert_called_once_with()
 
-    def test_https(self, mock_zc):
+    def test_v6(self, mock_zc, mock_route):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            port=80,
+            properties={},
+            **{'parsed_addresses.return_value': ['::2']}
+        )
+
+        endp, params = mdns.get_endpoint('baremetal')
+        self.assertEqual('http://[::2]:80', endp)
+        self.assertEqual({}, params)
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+        mock_zc.return_value.close.assert_called_once_with()
+
+    def test_skip_invalid(self, mock_zc, mock_route):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            port=80,
+            properties={},
+            **{'parsed_addresses.return_value': ['::1', '::2', '::3']}
+        )
+        mock_route.side_effect = [None, '::4']
+
+        endp, params = mdns.get_endpoint('baremetal')
+        self.assertEqual('http://[::3]:80', endp)
+        self.assertEqual({}, params)
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+        mock_zc.return_value.close.assert_called_once_with()
+        self.assertEqual(2, mock_route.call_count)
+
+    def test_https(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=443,
-            properties={}
+            properties={},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -164,11 +211,12 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_with_custom_port_and_path(self, mock_zc):
+    def test_with_custom_port_and_path(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=8080,
-            properties={b'path': b'/baremetal'}
+            properties={b'path': b'/baremetal'},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -179,11 +227,12 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_with_custom_port_path_and_protocol(self, mock_zc):
+    def test_with_custom_port_path_and_protocol(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=8080,
-            properties={b'path': b'/baremetal', b'protocol': b'http'}
+            properties={b'path': b'/baremetal', b'protocol': b'http'},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -194,11 +243,12 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_with_params(self, mock_zc):
+    def test_with_params(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=80,
-            properties={b'ipa_debug': True}
+            properties={b'ipa_debug': True},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -209,11 +259,12 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_binary_data(self, mock_zc):
+    def test_binary_data(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=80,
-            properties={b'ipa_debug': True, b'binary': b'\xe2\x28\xa1'}
+            properties={b'ipa_debug': True, b'binary': b'\xe2\x28\xa1'},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -225,11 +276,12 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_invalid_key(self, mock_zc):
+    def test_invalid_key(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=80,
-            properties={b'ipa_debug': True, b'\xc3\x28': b'value'}
+            properties={b'ipa_debug': True, b'\xc3\x28': b'value'},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         self.assertRaisesRegex(exception.ServiceLookupFailure,
@@ -240,12 +292,13 @@ class GetEndpointTestCase(base.IronicLibTestCase):
             'baremetal._openstack._tcp.local.'
         )
 
-    def test_with_server(self, mock_zc):
+    def test_with_server(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),
             port=443,
             server='openstack.example.com.',
-            properties={}
+            properties={},
+            **{'parsed_addresses.return_value': ['192.168.1.1']}
         )
 
         endp, params = mdns.get_endpoint('baremetal')
@@ -257,7 +310,7 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         )
 
     @mock.patch('time.sleep', autospec=True)
-    def test_not_found(self, mock_sleep, mock_zc):
+    def test_not_found(self, mock_sleep, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = None
 
         self.assertRaisesRegex(exception.ServiceLookupFailure,

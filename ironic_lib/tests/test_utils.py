@@ -605,3 +605,40 @@ class WaitForDisk(base.IronicLibTestCase):
                                check_exit_code=[0, 1])
         self.assertEqual(2, mock_exc.call_count)
         mock_exc.assert_has_calls([fuser_call, fuser_call])
+
+
+@mock.patch.object(utils, 'execute', autospec=True)
+class GetRouteSourceTestCase(base.IronicLibTestCase):
+
+    def test_get_route_source_ipv4(self, mock_execute):
+        mock_execute.return_value = ('XXX src 1.2.3.4 XXX\n    cache', None)
+
+        source = utils.get_route_source('XXX')
+        self.assertEqual('1.2.3.4', source)
+
+    def test_get_route_source_ipv6(self, mock_execute):
+        mock_execute.return_value = ('XXX src 1:2::3:4 metric XXX\n    cache',
+                                     None)
+
+        source = utils.get_route_source('XXX')
+        self.assertEqual('1:2::3:4', source)
+
+    def test_get_route_source_ipv6_linklocal(self, mock_execute):
+        mock_execute.return_value = (
+            'XXX src fe80::1234:1234:1234:1234 metric XXX\n    cache', None)
+
+        source = utils.get_route_source('XXX')
+        self.assertIsNone(source)
+
+    def test_get_route_source_ipv6_linklocal_allowed(self, mock_execute):
+        mock_execute.return_value = (
+            'XXX src fe80::1234:1234:1234:1234 metric XXX\n    cache', None)
+
+        source = utils.get_route_source('XXX', ignore_link_local=False)
+        self.assertEqual('fe80::1234:1234:1234:1234', source)
+
+    def test_get_route_source_indexerror(self, mock_execute):
+        mock_execute.return_value = ('XXX src \n    cache', None)
+
+        source = utils.get_route_source('XXX')
+        self.assertIsNone(source)
