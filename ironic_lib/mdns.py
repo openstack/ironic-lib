@@ -78,7 +78,10 @@ class Zeroconf(object):
         """Initialize and start the mDNS server."""
         interfaces = (CONF.mdns.interfaces if CONF.mdns.interfaces
                       else zeroconf.InterfaceChoice.All)
-        self._zc = zeroconf.Zeroconf(interfaces=interfaces)
+        # If interfaces are set, let zeroconf auto-detect the version
+        ip_version = None if CONF.mdns.interfaces else zeroconf.IPVersion.All
+        self._zc = zeroconf.Zeroconf(interfaces=interfaces,
+                                     ip_version=ip_version)
         self._registered = []
 
     def register_service(self, service_type, endpoint, params=None):
