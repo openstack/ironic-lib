@@ -197,6 +197,40 @@ class GetEndpointTestCase(base.IronicLibTestCase):
         mock_zc.return_value.close.assert_called_once_with()
         self.assertEqual(2, mock_route.call_count)
 
+    def test_fallback(self, mock_zc, mock_route):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            port=80,
+            properties={},
+            **{'parsed_addresses.return_value': ['::2', '::3']}
+        )
+        mock_route.side_effect = [None, None]
+
+        endp, params = mdns.get_endpoint('baremetal')
+        self.assertEqual('http://[::2]:80', endp)
+        self.assertEqual({}, params)
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+        mock_zc.return_value.close.assert_called_once_with()
+        self.assertEqual(2, mock_route.call_count)
+
+    def test_localhost_only(self, mock_zc, mock_route):
+        mock_zc.return_value.get_service_info.return_value = mock.Mock(
+            port=80,
+            properties={},
+            **{'parsed_addresses.return_value': ['::1']}
+        )
+
+        self.assertRaises(exception.ServiceLookupFailure,
+                          mdns.get_endpoint, 'baremetal')
+        mock_zc.return_value.get_service_info.assert_called_once_with(
+            'baremetal._openstack._tcp.local.',
+            'baremetal._openstack._tcp.local.'
+        )
+        mock_zc.return_value.close.assert_called_once_with()
+        self.assertFalse(mock_route.called)
+
     def test_https(self, mock_zc, mock_route):
         mock_zc.return_value.get_service_info.return_value = mock.Mock(
             address=socket.inet_aton('192.168.1.1'),

@@ -163,6 +163,7 @@ class Zeroconf(object):
         all_addr = info.parsed_addresses()
 
         # Try to find the first routable address
+        fallback = None
         for addr in all_addr:
             try:
                 loopback = ipaddress.ip_address(addr).is_loopback
@@ -177,10 +178,18 @@ class Zeroconf(object):
             if utils.get_route_source(addr, skip_link_local):
                 address = addr
                 break
+            elif fallback is None:
+                fallback = addr
+        else:
+            if fallback is None:
+                raise exception.ServiceLookupFailure(
+                    _('None of addresses %(addr)s for service %(service)s '
+                      'are valid')
+                    % {'addr': all_addr, 'service': service_type})
             else:
-                LOG.warning('None of addresses %s seem routable, using '
-                            'the first one', all_addr)
-                address = all_addr[0]
+                LOG.warning('None of addresses %s seem routable, using %s',
+                            all_addr, fallback)
+                address = fallback
 
         properties = {}
         for key, value in info.properties.items():
