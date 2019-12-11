@@ -28,7 +28,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
-import six
 
 from ironic_lib.common.i18n import _
 
@@ -68,7 +67,7 @@ def _ensure_exception_kwargs_serializable(exc_class_name, kwargs):
     :returns: a dictionary of serializable keyword arguments.
     """
     serializers = [(jsonutils.dumps, _('when converting to JSON')),
-                   (six.text_type, _('when converting to string'))]
+                   (str, _('when converting to string'))]
     exceptions = collections.defaultdict(list)
     serializable_kwargs = {}
     for k, v in kwargs.items():
@@ -108,7 +107,7 @@ class IronicException(Exception):
     with the keyword arguments provided to the constructor.
 
     If you need to access the message from an exception you should use
-    six.text_type(exc)
+    str(exc)
 
     """
 
@@ -147,25 +146,6 @@ class IronicException(Exception):
                         ctxt.reraise = False
 
         super(IronicException, self).__init__(message)
-
-    def __str__(self):
-        """Encode to utf-8 then wsme api can consume it as well."""
-        value = self.__unicode__()
-        if six.PY3:
-            # On Python 3 unicode is the same as str
-            return value
-        else:
-            return value.encode('utf-8')
-
-    def __unicode__(self):
-        """Return a unicode representation of the exception message."""
-        return six.text_type(self.args[0])
-
-    def format_message(self):
-        if self.__class__.__name__.endswith('_Remote'):
-            return self.args[0]
-        else:
-            return six.text_type(self)
 
 
 class InstanceDeployFailure(IronicException):

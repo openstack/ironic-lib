@@ -14,6 +14,7 @@
 #    under the License.
 
 import gzip
+import io
 import logging
 import math
 import os
@@ -31,7 +32,6 @@ from oslo_utils import excutils
 from oslo_utils import imageutils
 from oslo_utils import units
 import requests
-import six
 
 from ironic_lib.common.i18n import _
 from ironic_lib import disk_partitioner
@@ -519,7 +519,7 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
         data = configdrive
 
     try:
-        data = six.BytesIO(base64.decode_as_bytes(data))
+        data = io.BytesIO(base64.decode_as_bytes(data))
     except TypeError:
         error_msg = (_('Config drive for node %s is not base64 encoded '
                        'or the content is malformed.') % node_uuid)
