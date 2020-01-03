@@ -1,0 +1,7 @@
+---
+upgrade:
+  - |
+    The configuration option ``[disk_utils]iscsi_verify_attempts was
+    deprecated in Train and it's now removed.
+    Please use the ``[disk_utils]partition_detection_attempts``
+    option instead.
