@@ -464,6 +464,18 @@ class MatchRootDeviceTestCase(base.IronicLibTestCase):
         self.assertIsNone(dev)
         self.assertTrue(mock_warn.called)
 
+    def test_find_devices_all(self):
+        root_device_hints = {'size': '>= 10'}
+        devs = list(utils.find_devices_by_hints(self.devices,
+                                                root_device_hints))
+        self.assertEqual(self.devices, devs)
+
+    def test_find_devices_none(self):
+        root_device_hints = {'size': '>= 100500'}
+        devs = list(utils.find_devices_by_hints(self.devices,
+                                                root_device_hints))
+        self.assertEqual([], devs)
+
 
 class WaitForDisk(base.IronicLibTestCase):
 

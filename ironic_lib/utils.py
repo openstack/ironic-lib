@@ -326,10 +326,10 @@ def parse_root_device_hints(root_device):
     return _append_operator_to_hints(root_device)
 
 
-def match_root_device_hints(devices, root_device_hints):
-    """Try to find a device that matches the root device hints.
+def find_devices_by_hints(devices, root_device_hints):
+    """Find all devices that match the root device hints.
 
-    Try to find a device that matches the root device hints. In order
+    Try to find devices that match the root device hints. In order
     for a device to be matched it needs to satisfy all the given hints.
 
     :param devices: A list of dictionaries representing the devices
@@ -354,9 +354,9 @@ def match_root_device_hints(devices, root_device_hints):
 
     :param root_device_hints: A dictionary with the root device hints.
     :raises: ValueError, if some information is invalid.
-    :returns: The first device to match all the hints or None.
+    :returns: A generator with all matching devices as dictionaries.
     """
-    LOG.debug('Trying to find a device from "%(devs)s" that matches the '
+    LOG.debug('Trying to find devices from "%(devs)s" that match the '
               'root device hints "%(hints)s"',
               {'devs': ', '.join([d.get('name') for d in devices]),
                'hints': root_device_hints})
@@ -413,11 +413,48 @@ def match_root_device_hints(devices, root_device_hints):
             if not specs_matcher.match(device_value, hint_value):
                 break
         else:
-            LOG.info('Device found! The device "%s" matches the root '
-                     'device hints', device_name)
-            return dev
+            yield dev
 
-    LOG.warning('No device found that matches the root device hints')
+
+def match_root_device_hints(devices, root_device_hints):
+    """Try to find a device that matches the root device hints.
+
+    Try to find a device that matches the root device hints. In order
+    for a device to be matched it needs to satisfy all the given hints.
+
+    :param devices: A list of dictionaries representing the devices
+                    containing one or more of the following keys:
+
+        :name: (String) The device name, e.g /dev/sda
+        :size: (Integer) Size of the device in *bytes*
+        :model: (String) Device model
+        :vendor: (String) Device vendor name
+        :serial: (String) Device serial number
+        :wwn: (String) Unique storage identifier
+        :wwn_with_extension: (String): Unique storage identifier with
+                             the vendor extension appended
+        :wwn_vendor_extension: (String): United vendor storage identifier
+        :rotational: (Boolean) Whether it's a rotational device or
+                     not. Useful to distinguish HDDs (rotational) and SSDs
+                     (not rotational).
+        :hctl: (String): The SCSI address: Host, channel, target and lun.
+                         For example: '1:0:0:0'.
+        :by_path: (String): The alternative device name,
+                  e.g. /dev/disk/by-path/pci-0000:00
+
+    :param root_device_hints: A dictionary with the root device hints.
+    :raises: ValueError, if some information is invalid.
+    :returns: The first device to match all the hints or None.
+    """
+    try:
+        dev = next(find_devices_by_hints(devices, root_device_hints))
+    except StopIteration:
+        LOG.warning('No device found that matches the root device hints %s',
+                    root_device_hints)
+    else:
+        LOG.info('Device found! The device "%s" matches the root '
+                 'device hints', dev)
+        return dev
 
 
 def wait_for_disk_to_become_available(device):
