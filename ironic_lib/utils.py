@@ -357,7 +357,7 @@ def find_devices_by_hints(devices, root_device_hints):
     :returns: A generator with all matching devices as dictionaries.
     """
     LOG.debug('Trying to find devices from "%(devs)s" that match the '
-              'root device hints "%(hints)s"',
+              'device hints "%(hints)s"',
               {'devs': ', '.join([d.get('name') for d in devices]),
                'hints': root_device_hints})
     parsed_hints = parse_root_device_hints(root_device_hints)
@@ -385,7 +385,7 @@ def find_devices_by_hints(devices, root_device_hints):
                 # in GiB for now
                 device_value = device_value / units.Gi
 
-            LOG.debug('Trying to match the root device hint "%(hint)s" '
+            LOG.debug('Trying to match the device hint "%(hint)s" '
                       'with a value of "%(hint_value)s" against the same '
                       'device\'s (%(dev)s) attribute with a value of '
                       '"%(dev_value)s"', {'hint': hint, 'dev': device_name,
@@ -408,10 +408,15 @@ def find_devices_by_hints(devices, root_device_hints):
                     break
                 if device_value == hint_value:
                     continue
-                break
 
-            if not specs_matcher.match(device_value, hint_value):
-                break
+            elif specs_matcher.match(device_value, hint_value):
+                continue
+
+            LOG.debug('The attribute "%(attr)s" (with value "%(value)s") '
+                      'of device "%(dev)s" does not match the hint %(hint)s',
+                      {'attr': hint, 'value': device_value,
+                       'dev': device_name, 'hint': hint_value})
+            break
         else:
             yield dev
 
@@ -452,8 +457,8 @@ def match_root_device_hints(devices, root_device_hints):
         LOG.warning('No device found that matches the root device hints %s',
                     root_device_hints)
     else:
-        LOG.info('Device found! The device "%s" matches the root '
-                 'device hints', dev)
+        LOG.info('Root device found! The device "%s" matches the root '
+                 'device hints %s', dev, root_device_hints)
         return dev
 
 
