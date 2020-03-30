@@ -511,6 +511,12 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         return ['parted', '-a', 'optimal', '-s', dev,
                 '--', 'unit', 'MiB', 'mklabel', label]
 
+    def _add_efi_sz(self, x):
+        return str(x + self.efi_size)
+
+    def _add_bios_sz(self, x):
+        return str(x + self.bios_size)
+
     def _test_make_partitions(self, mock_exc, boot_option, boot_mode='bios',
                               disk_label=None, cpu_arch=""):
         mock_exc.return_value = ('', '')
@@ -521,14 +527,13 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                                    cpu_arch=cpu_arch)
 
         if boot_option == "local" and boot_mode == "uefi":
-            add_efi_sz = lambda x: str(x + self.efi_size)
             expected_mkpart = ['mkpart', 'primary', 'fat32', '1',
-                               add_efi_sz(1),
+                               self._add_efi_sz(1),
                                'set', '1', 'boot', 'on',
                                'mkpart', 'primary', 'linux-swap',
-                               add_efi_sz(1), add_efi_sz(513), 'mkpart',
-                               'primary', '', add_efi_sz(513),
-                               add_efi_sz(1537)]
+                               self._add_efi_sz(1), self._add_efi_sz(513),
+                               'mkpart', 'primary', '', self._add_efi_sz(513),
+                               self._add_efi_sz(1537)]
         else:
             if boot_option == "local":
                 if disk_label == "gpt":
@@ -539,14 +544,15 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                                            '9', '521', 'mkpart', 'primary',
                                            '', '521', '1545']
                     else:
-                        add_bios_sz = lambda x: str(x + self.bios_size)
                         expected_mkpart = ['mkpart', 'primary', '', '1',
-                                           add_bios_sz(1),
+                                           self._add_bios_sz(1),
                                            'set', '1', 'bios_grub', 'on',
                                            'mkpart', 'primary', 'linux-swap',
-                                           add_bios_sz(1), add_bios_sz(513),
+                                           self._add_bios_sz(1),
+                                           self._add_bios_sz(513),
                                            'mkpart', 'primary', '',
-                                           add_bios_sz(513), add_bios_sz(1537)]
+                                           self._add_bios_sz(513),
+                                           self._add_bios_sz(1537)]
                 elif cpu_arch.startswith('ppc64'):
                     expected_mkpart = ['mkpart', 'primary', '', '1', '9',
                                        'set', '1', 'boot', 'on',
@@ -563,8 +569,8 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                                    '513', 'mkpart', 'primary', '', '513',
                                    '1537']
         self.dev = 'fake-dev'
-        parted_cmd = (self._get_parted_cmd(self.dev, disk_label) +
-                      expected_mkpart)
+        parted_cmd = (self._get_parted_cmd(self.dev, disk_label)
+                      + expected_mkpart)
         parted_call = mock.call(*parted_cmd, use_standard_locale=True,
                                 run_as_root=True, check_exit_code=[0])
         fuser_cmd = ['fuser', 'fake-dev']

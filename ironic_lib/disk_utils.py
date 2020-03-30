@@ -67,7 +67,7 @@ CONF.register_opts(opts, group='disk_utils')
 LOG = logging.getLogger(__name__)
 
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
-                              "([\d\.]+)MiB:([\d\.]+)MiB:(\w*):(.*):(.*);")
+                              r"([\d\.]+)MiB:([\d\.]+)MiB:(\w*):(.*):(.*);")
 
 CONFIGDRIVE_LABEL = "config-2"
 MAX_CONFIG_DRIVE_SIZE_MB = 64
@@ -282,8 +282,8 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     # a PrEP partition at the start of the disk. This is an 8 MiB partition
     # with the boot and prep flags set. The bootloader should be installed
     # here.
-    if (cpu_arch.startswith("ppc64") and boot_mode == "bios" and
-        boot_option == "local"):
+    if (cpu_arch.startswith("ppc64") and boot_mode == "bios"
+            and boot_option == "local"):
         LOG.debug("Add PReP boot partition (8 MB) to device: "
                   "%(dev)s for node %(node)s",
                   {'dev': dev, 'node': node_uuid})
@@ -906,11 +906,11 @@ def create_config_drive_partition(node_uuid, device, configdrive):
         confdrive_mb, confdrive_file = _get_configdrive(configdrive,
                                                         node_uuid)
         if confdrive_mb > MAX_CONFIG_DRIVE_SIZE_MB:
-                raise exception.InstanceDeployFailure(
-                    _('Config drive size exceeds maximum limit of 64MiB. '
-                      'Size of the given config drive is %(size)d MiB for '
-                      'node %(node)s.')
-                    % {'size': confdrive_mb, 'node': node_uuid})
+            raise exception.InstanceDeployFailure(
+                _('Config drive size exceeds maximum limit of 64MiB. '
+                  'Size of the given config drive is %(size)d MiB for '
+                  'node %(node)s.')
+                % {'size': confdrive_mb, 'node': node_uuid})
 
         LOG.debug("Adding config drive partition %(size)d MiB to "
                   "device: %(dev)s for node %(node)s",
@@ -959,8 +959,8 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                                 "node %(node)s. Creating config drive "
                                 "at the end of the disk %(disk)s.",
                                 {'node': node_uuid, 'disk': device})
-                    startlimit = (MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR -
-                                  MAX_CONFIG_DRIVE_SIZE_MB - 1)
+                    startlimit = (MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR
+                                  - MAX_CONFIG_DRIVE_SIZE_MB - 1)
                     endlimit = MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR - 1
 
                 utils.execute('parted', '-a', 'optimal', '-s', '--', device,

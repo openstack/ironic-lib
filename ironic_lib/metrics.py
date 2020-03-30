@@ -104,8 +104,8 @@ class Counter(object):
             raise TypeError(_("The metric name is expected to be a string. "
                             "Value is %s") % name)
 
-        if (sample_rate is not None and
-                (sample_rate < 0.0 or sample_rate > 1.0)):
+        if (sample_rate is not None
+                and (sample_rate < 0.0 or sample_rate > 1.0)):
             msg = _("sample_rate is set to %s. Value must be None "
                     "or in the interval [0.0, 1.0]") % sample_rate
             raise ValueError(msg)
