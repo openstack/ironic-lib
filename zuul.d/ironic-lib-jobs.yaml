@@ -46,6 +46,7 @@
         s-object: True
         s-proxy: True
       devstack_localrc:
+        IRONIC_DEFAULT_BOOT_OPTION: netboot
         IRONIC_DEFAULT_DEPLOY_INTERFACE: direct
         SWIFT_ENABLE_TEMPURLS: True
         SWIFT_TEMPURL_KEY: secretkey
@@ -54,7 +55,9 @@
     name: ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
     parent: ironic-lib-base
     timeout: 7200
-
+    vars:
+      devstack_localrc:
+        IRONIC_DEFAULT_BOOT_OPTION: netboot
 
 - job:
     name: ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
