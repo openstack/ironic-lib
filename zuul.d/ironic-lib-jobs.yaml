@@ -15,11 +15,13 @@
       - openstack/ironic-lib
     vars:
       devstack_localrc:
-        IRONIC_RAMDISK_TYPE: tinyipa
+        BUILD_TIMEOUT: 900
         IRONIC_BUILD_DEPLOY_RAMDISK: True
+        IRONIC_TEMPEST_BUILD_TIMEOUT: 900
+        IRONIC_VM_SPECS_RAM: 2048
 
 - job:
-    name: ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
+    name: ironic-lib-wholedisk-bios-ipmi-direct-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
@@ -36,7 +38,7 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-partition-bios-ipmi-direct-tinyipa-src
+    name: ironic-lib-partition-bios-ipmi-direct-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
@@ -51,13 +53,13 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
+    name: ironic-lib-partition-bios-ipmi-iscsi-src
     parent: ironic-lib-base
     timeout: 7200
 
 
 - job:
-    name: ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
+    name: ironic-lib-wholedisk-bios-ipmi-iscsi-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
