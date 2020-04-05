@@ -5,9 +5,10 @@
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
+extensions = [
               'sphinx.ext.viewcode',
               'openstackdocstheme',
+              'sphinxcontrib.apidoc'
               ]
 
 wsme_protocols = ['restjson']
@@ -51,6 +52,14 @@ add_module_names = True
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
+
+# -- sphinxcontrib.apidoc configuration --------------------------------------
+
+apidoc_module_dir = '../../ironic_lib'
+apidoc_output_dir = 'reference/api'
+apidoc_excluded_paths = [
+    'tests',
+]
 
 # -- Options for HTML output --------------------------------------------------
 
