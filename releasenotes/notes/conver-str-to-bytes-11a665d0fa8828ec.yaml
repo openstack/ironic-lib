@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Fixes an py3 compatibility issue in metrics_statsd where str need be
+    explicitly converted to bytes before send with socket.
+    See `Story 2007537 <https://storyboard.openstack.org/#!/story/2007537>`_
+    for details.
