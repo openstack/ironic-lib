@@ -75,27 +75,27 @@ class TestStatsdMetricLogger(base.IronicLibTestCase):
 
         self.ml._send('part1.part2', 2, 'type')
         mock_socket.sendto.assert_called_once_with(
-            'part1.part2:2|type',
+            b'part1.part2:2|type',
             ('test-host', 4321))
         mock_socket.close.assert_called_once_with()
         mock_socket.reset_mock()
 
         self.ml._send('part1.part2', 3.14159, 'type')
         mock_socket.sendto.assert_called_once_with(
-            'part1.part2:3.14159|type',
+            b'part1.part2:3.14159|type',
             ('test-host', 4321))
         mock_socket.close.assert_called_once_with()
         mock_socket.reset_mock()
 
         self.ml._send('part1.part2', 5, 'type')
         mock_socket.sendto.assert_called_once_with(
-            'part1.part2:5|type',
+            b'part1.part2:5|type',
             ('test-host', 4321))
         mock_socket.close.assert_called_once_with()
         mock_socket.reset_mock()
 
         self.ml._send('part1.part2', 5, 'type', sample_rate=0.5)
         mock_socket.sendto.assert_called_once_with(
-            'part1.part2:5|type@0.5',
+            b'part1.part2:5|type@0.5',
             ('test-host', 4321))
         mock_socket.close.assert_called_once_with()
