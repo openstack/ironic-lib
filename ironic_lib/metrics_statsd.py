@@ -80,7 +80,7 @@ class StatsdMetricLogger(metrics.MetricLogger):
         with contextlib.closing(self._open_socket()) as sock:
             try:
                 sock.settimeout(0.0)
-                sock.sendto(metric, self._target)
+                sock.sendto(metric.encode(), self._target)
             except socket.error as e:
                 LOG.warning("Failed to send the metric value to host "
                             "%(host)s, port %(port)s. Error: %(error)s",
