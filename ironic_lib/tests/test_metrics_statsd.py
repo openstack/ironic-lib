@@ -14,8 +14,8 @@
 #    under the License.
 
 import socket
+from unittest import mock
 
-import mock
 
 from ironic_lib import metrics_statsd
 from ironic_lib.tests import base

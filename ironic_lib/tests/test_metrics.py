@@ -14,8 +14,8 @@
 #    under the License.
 
 import types
+from unittest import mock
 
-import mock
 from oslo_utils import reflection
 
 from ironic_lib import metrics as metricslib

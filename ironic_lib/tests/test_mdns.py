@@ -11,8 +11,8 @@
 # under the License.
 
 import socket
+from unittest import mock
 
-import mock
 from oslo_config import cfg
 import zeroconf
 

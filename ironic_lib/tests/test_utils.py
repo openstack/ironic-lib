@@ -17,8 +17,8 @@ import copy
 import errno
 import os
 import os.path
+from unittest import mock
 
-import mock
 from oslo_concurrency import processutils
 from oslo_config import cfg
 

@@ -12,8 +12,8 @@
 # limitations under the License.
 
 import subprocess
+from unittest import mock
 
-import mock
 from oslo_concurrency import processutils
 
 from ironic_lib.tests import base
