@@ -15,8 +15,6 @@
 
 from unittest import mock
 
-from testtools.matchers import HasLength
-
 from ironic_lib import disk_partitioner
 from ironic_lib import exception
 from ironic_lib.tests import base
@@ -55,7 +53,7 @@ class DiskPartitionerTestCase(base.IronicLibTestCase):
                          'type': 'primary',
                          'size': 2048})]
         partitions = [(n, p) for n, p in dp.get_partitions()]
-        self.assertThat(partitions, HasLength(4))
+        self.assertEqual(4, len(partitions))
         self.assertEqual(expected, partitions)
 
     @mock.patch.object(disk_partitioner.DiskPartitioner, '_exec',
