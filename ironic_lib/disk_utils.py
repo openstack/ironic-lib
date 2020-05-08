@@ -68,6 +68,13 @@ opts = [
                default=10,
                help='Maximum number of attempts to try to read the '
                     'partition.'),
+    cfg.IntOpt('image_convert_memory_limit',
+               default=1024,
+               help='Memory limit for "qemu-img convert" in MiB. Implemented '
+                    'via the address space resource limit.'),
+    cfg.IntOpt('image_convert_attempts',
+               default=3,
+               help='Number of attempts to convert an image.'),
 ]
 
 CONF = cfg.CONF
@@ -85,7 +92,16 @@ MAX_CONFIG_DRIVE_SIZE_MB = 64
 MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR = 2097152
 
 # Limit the memory address space to 1 GiB when running qemu-img
-QEMU_IMG_LIMITS = processutils.ProcessLimits(address_space=1 * units.Gi)
+QEMU_IMG_LIMITS = None
+
+
+def _qemu_img_limits():
+    global QEMU_IMG_LIMITS
+    if QEMU_IMG_LIMITS is None:
+        QEMU_IMG_LIMITS = processutils.ProcessLimits(
+            address_space=CONF.disk_utils.image_convert_memory_limit
+            * units.Mi)
+    return QEMU_IMG_LIMITS
 
 
 def list_partitions(device):
@@ -382,14 +398,29 @@ def qemu_img_info(path):
 
     out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
                              'qemu-img', 'info', path,
-                             prlimit=QEMU_IMG_LIMITS)
+                             prlimit=_qemu_img_limits())
     return imageutils.QemuImgInfo(out)
 
 
 def convert_image(source, dest, out_format, run_as_root=False):
     """Convert image to other format."""
-    cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
-    utils.execute(*cmd, run_as_root=run_as_root, prlimit=QEMU_IMG_LIMITS)
+    # TODO(dtantsur): use the retrying library
+    for attempt in range(CONF.disk_utils.image_convert_attempts):
+        cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
+        try:
+            utils.execute(*cmd, run_as_root=run_as_root,
+                          prlimit=_qemu_img_limits(),
+                          use_standard_locale=True)
+        except processutils.ProcessExecutionError as e:
+            if ('Resource temporarily unavailable' in e.stderr
+                    and attempt < CONF.disk_utils.image_convert_attempts - 1):
+                LOG.debug('Failed to convert image, retrying. Error: %s', e)
+                # Sync disk caches before the next attempt
+                utils.execute('sync')
+            else:
+                raise
+        else:
+            return
 
 
 def populate_image(src, dst, conv_flags=None):
