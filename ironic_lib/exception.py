@@ -23,6 +23,7 @@ SHOULD include dedicated exception logging.
 """
 
 import collections
+from http import client as http_client
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -167,3 +168,15 @@ class ServiceLookupFailure(IronicException):
 
 class ServiceRegistrationFailure(IronicException):
     _msg_fmt = _("Cannot register %(service)s service: %(error)s")
+
+
+class BadRequest(IronicException):
+    code = http_client.BAD_REQUEST
+
+
+class Unauthorized(IronicException):
+    code = http_client.UNAUTHORIZED
+
+
+class ConfigInvalid(IronicException):
+    _msg_fmt = _("Invalid configuration file. %(error_msg)s")
