@@ -13,7 +13,7 @@ flake8==2.5.5
 flake8-import-order==0.17.1
 future==0.16.0
 greenlet==0.4.10
-hacking==3.0.0
+hacking==3.0.1
 ifaddr==0.1.6
 iso8601==0.1.11
 keystoneauth1==3.4.0
