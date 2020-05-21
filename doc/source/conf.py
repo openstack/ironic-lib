@@ -29,17 +29,6 @@ master_doc = 'index'
 # General information about the project.
 copyright = u'OpenStack Foundation'
 
-# The version info for the project you're documenting, acts as replacement for
-# |version| and |release|, also used in various other places throughout the
-# built documents.
-#
-# The short X.Y version.
-from ironic_lib import version as il_version
-# The full version, including alpha/beta/rc tags.
-release = il_version.version_info.release_string()
-# The short X.Y version.
-version = il_version.version_info.version_string()
-
 # A list of ignored prefixes for module index sorting.
 modindex_common_prefix = ['ironic_lib']
 
@@ -51,7 +40,7 @@ add_function_parentheses = True
 add_module_names = True
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'native'
 
 # -- sphinxcontrib.apidoc configuration --------------------------------------
 
@@ -71,8 +60,9 @@ apidoc_excluded_paths = [
 html_theme = 'openstackdocs'
 
 # openstackdocstheme options
-repository_name = 'openstack/ironic-lib'
-use_storyboard = True
+openstackdocs_repo_name = 'openstack/ironic-lib'
+openstackdocs_pdf_link = True
+openstackdocs_use_storyboard = True
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'ironic-libdoc'
