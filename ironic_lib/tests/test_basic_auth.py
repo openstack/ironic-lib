@@ -16,8 +16,7 @@
 import base64
 import os
 import tempfile
-
-import mock
+from unittest import mock
 
 from ironic_lib import auth_basic
 from ironic_lib import exception
