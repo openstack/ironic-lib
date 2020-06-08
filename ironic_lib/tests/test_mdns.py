@@ -36,7 +36,7 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         info = mock_zc.return_value.register_service.call_args[0][0]
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.address))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
         self.assertEqual({'path': '/baremetal'}, info.properties)
 
     def test_with_params(self, mock_zc):
@@ -49,7 +49,7 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         info = mock_zc.return_value.register_service.call_args[0][0]
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.address))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
         self.assertEqual({'path': '/baremetal',
                           'answer': 42,
                           'foo': 'bar'},
@@ -80,7 +80,7 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         info = mock_zc.return_value.register_service.call_args[0][0]
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
-        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.address))
+        self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
         self.assertEqual({'path': '/baremetal'}, info.properties)
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
