@@ -126,7 +126,7 @@ def parse_entry(entry):
     username, crypted_str = entry.split(':', maxsplit=1)
     crypted = crypted_str.encode('utf-8')
 
-    if not crypted.startswith(b'$2y$'):
+    if crypted[:4] not in (b'$2y$', b'$2a$', b'$2b$'):
         error_msg = _('Only bcrypt digested passwords are supported for '
                       '%(username)s') % {'username': username}
         raise exception.ConfigInvalid(error_msg=error_msg)

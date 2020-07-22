@@ -96,6 +96,10 @@ class TestAuthBasic(base.IronicLibTestCase):
     def test_auth_entry(self):
         entry_pass = ('myName:$2y$05$lE3eGtyj41jZwrzS87KTqe6.'
                       'JETVCWBkc32C63UP2aYrGoYOEpbJm')
+        entry_pass_2a = ('myName:$2a$10$I9Fi3DM1sbxQP0560MK9'
+                         'tec1dUdytBtIqXfDCyTNfDUabtGvQjW1S')
+        entry_pass_2b = ('myName:$2b$12$dWLBxT6aMxpVTfUNAyOu'
+                         'IusHXewu8m6Hrsxw4/e95WGBelFn0oOMW')
         entry_fail = 'foo:bar'
 
         # success
@@ -103,6 +107,18 @@ class TestAuthBasic(base.IronicLibTestCase):
             {'HTTP_X_USER': 'myName', 'HTTP_X_USER_NAME': 'myName'},
             auth_basic.auth_entry(
                 entry_pass, b'myPassword')
+        )
+
+        # success with a bcrypt implementations other than htpasswd
+        self.assertEqual(
+            {'HTTP_X_USER': 'myName', 'HTTP_X_USER_NAME': 'myName'},
+            auth_basic.auth_entry(
+                entry_pass_2a, b'myPassword')
+        )
+        self.assertEqual(
+            {'HTTP_X_USER': 'myName', 'HTTP_X_USER_NAME': 'myName'},
+            auth_basic.auth_entry(
+                entry_pass_2b, b'myPassword')
         )
 
         # failed, unknown digest format
