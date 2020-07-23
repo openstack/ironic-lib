@@ -176,6 +176,7 @@ class BadRequest(IronicException):
 
 class Unauthorized(IronicException):
     code = http_client.UNAUTHORIZED
+    headers = {'WWW-Authenticate': 'Basic realm="Baremetal API"'}
 
 
 class ConfigInvalid(IronicException):
