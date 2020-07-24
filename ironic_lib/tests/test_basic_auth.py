@@ -14,6 +14,7 @@
 #    under the License.
 
 import base64
+import json
 import os
 import tempfile
 from unittest import mock
@@ -55,13 +56,18 @@ class TestAuthBasic(base.IronicLibTestCase):
         app = mock.Mock()
         start_response = mock.Mock()
         middleware = auth_basic.BasicAuthMiddleware(app, auth_file)
-        env = {}
+        env = {'REQUEST_METHOD': 'GET'}
 
-        middleware(env, start_response)
+        body = middleware(env, start_response)
+        decoded = json.loads(body[0].decode())
+        self.assertEqual({'error': {'message': 'Authorization required',
+                                    'code': 401}}, decoded)
 
         start_response.assert_called_once_with(
-            '401 Authorization required',
-            [('WWW-Authenticate', 'Basic realm="Baremetal API"')]
+            '401 Unauthorized',
+            [('WWW-Authenticate', 'Basic realm="Baremetal API"'),
+             ('Content-Type', 'application/json'),
+             ('Content-Length', str(len(body[0])))]
         )
         app.assert_not_called()
 

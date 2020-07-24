@@ -18,6 +18,7 @@ import binascii
 
 import bcrypt
 from oslo_log import log
+import webob
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -34,6 +35,16 @@ class BasicAuthMiddleware(object):
         self.auth_file = auth_file
         validate_auth_file(auth_file)
 
+    def format_exception(self, e):
+        result = {'error': {'message': str(e), 'code': e.code}}
+        headers = list(e.headers.items()) + [
+            ('Content-Type', 'application/json')
+        ]
+        return webob.Response(content_type='application/json',
+                              status_code=e.code,
+                              json_body=result,
+                              headerlist=headers)
+
     def __call__(self, env, start_response):
 
         try:
@@ -44,9 +55,8 @@ class BasicAuthMiddleware(object):
             return self.app(env, start_response)
 
         except exception.IronicException as e:
-            status = '%s %s' % (int(e.code), str(e))
-            headers = [(k, v) for k, v in e.headers.items()]
-            start_response(status, headers)
+            response = self.format_exception(e)
+            return response(env, start_response)
 
 
 def authenticate(auth_file, username, password):
@@ -182,6 +192,4 @@ def unauthorized(message=None):
     """
     if not message:
         message = _('Incorrect username or password')
-    e = exception.Unauthorized(message)
-    e.headers['WWW-Authenticate'] = 'Basic realm="Baremetal API"'
-    raise e
+    raise exception.Unauthorized(message)
