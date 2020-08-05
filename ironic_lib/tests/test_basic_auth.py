@@ -212,7 +212,7 @@ class TestAuthBasic(base.IronicLibTestCase):
         e = self.assertRaises(exception.BadRequest,
                               auth_basic.parse_header,
                               {'HTTP_AUTHORIZATION': digest_value})
-        self.assertEqual('Unsupported authorization type: Digest', str(e))
+        self.assertEqual('Unsupported authorization type "Digest"', str(e))
 
     def test_unauthorized(self):
         e = self.assertRaises(exception.Unauthorized,

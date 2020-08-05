@@ -81,10 +81,13 @@ def authenticate(auth_file, username, password):
                 entry = line.strip()
                 if entry and entry.startswith(line_prefix):
                     return auth_entry(entry, password)
-    except OSError:
+    except OSError as exc:
+        LOG.error('Problem reading auth user file: %s', exc)
         raise exception.ConfigInvalid(
             error_msg=_('Problem reading auth user file'))
+
     # reached end of file with no matches
+    LOG.info('User %s not found', username)
     unauthorized()
 
 
@@ -100,6 +103,7 @@ def auth_entry(entry, password):
     username, crypted = parse_entry(entry)
 
     if not bcrypt.checkpw(password, crypted):
+        LOG.info('Password for %s does not match', username)
         unauthorized()
 
     return {
@@ -158,7 +162,8 @@ def parse_token(token):
         (username, password) = auth_pair.split(b':', maxsplit=1)
 
         return (username.decode('utf-8'), password)
-    except (TypeError, binascii.Error, ValueError):
+    except (TypeError, binascii.Error, ValueError) as exc:
+        LOG.info('Could not decode authorization token: %s', exc)
         raise exception.BadRequest(_('Could not decode authorization token'))
 
 
@@ -172,15 +177,18 @@ def parse_header(env):
     try:
         auth_header = env.pop('HTTP_AUTHORIZATION')
     except KeyError:
+        LOG.info('No authorization token received')
         unauthorized(_('Authorization required'))
     try:
         auth_type, token = auth_header.strip().split(maxsplit=1)
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as exc:
+        LOG.info('Could not parse Authorization header: %s', exc)
         raise exception.BadRequest(_('Could not parse Authorization header'))
 
     if auth_type.lower() != 'basic':
-        raise exception.BadRequest(_('Unsupported authorization type: '
-                                   '%(auth_type)s') % {'auth_type': auth_type})
+        msg = _('Unsupported authorization type "%s"') % auth_type
+        LOG.info(msg)
+        raise exception.BadRequest(msg)
     return token
 
 
