@@ -32,6 +32,7 @@ from oslo_utils import excutils
 from oslo_utils import imageutils
 from oslo_utils import units
 import requests
+import tenacity
 
 from ironic_lib.common.i18n import _
 from ironic_lib import disk_partitioner
@@ -391,25 +392,30 @@ def qemu_img_info(path):
     return imageutils.QemuImgInfo(out)
 
 
+def _retry_on_res_temp_unavailable(exc):
+    if (isinstance(exc, processutils.ProcessExecutionError)
+            and 'Resource temporarily unavailable' in exc.stderr):
+        return True
+    return False
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_retry_on_res_temp_unavailable),
+    stop=tenacity.stop_after_attempt(CONF.disk_utils.image_convert_attempts),
+    reraise=True)
 def convert_image(source, dest, out_format, run_as_root=False):
     """Convert image to other format."""
-    # TODO(dtantsur): use the retrying library
-    for attempt in range(CONF.disk_utils.image_convert_attempts):
-        cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
-        try:
-            utils.execute(*cmd, run_as_root=run_as_root,
-                          prlimit=_qemu_img_limits(),
-                          use_standard_locale=True)
-        except processutils.ProcessExecutionError as e:
-            if ('Resource temporarily unavailable' in e.stderr
-                    and attempt < CONF.disk_utils.image_convert_attempts - 1):
-                LOG.debug('Failed to convert image, retrying. Error: %s', e)
-                # Sync disk caches before the next attempt
-                utils.execute('sync')
-            else:
-                raise
-        else:
-            return
+    cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
+    try:
+        utils.execute(*cmd, run_as_root=run_as_root,
+                      prlimit=_qemu_img_limits(),
+                      use_standard_locale=True)
+    except processutils.ProcessExecutionError as e:
+        if 'Resource temporarily unavailable' in e.stderr:
+            LOG.debug('Failed to convert image, retrying. Error: %s', e)
+            # Sync disk caches before the next attempt
+            utils.execute('sync')
+        raise
 
 
 def populate_image(src, dst, conv_flags=None):
