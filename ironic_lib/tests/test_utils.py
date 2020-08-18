@@ -230,6 +230,14 @@ class ParseRootDeviceTestCase(base.IronicLibTestCase):
         # The hints already contain the operators, make sure we keep it
         self.assertEqual(expected, result)
 
+    def test_parse_root_device_hints_string_compare_operator_name(self):
+        root_device = {'name': 's== /dev/sdb'}
+        # Validate strings being normalized
+        expected = copy.deepcopy(root_device)
+        result = utils.parse_root_device_hints(root_device)
+        # The hints already contain the operators, make sure we keep it
+        self.assertEqual(expected, result)
+
     def test_parse_root_device_hints_no_hints(self):
         result = utils.parse_root_device_hints({})
         self.assertIsNone(result)
@@ -475,6 +483,12 @@ class MatchRootDeviceTestCase(base.IronicLibTestCase):
         devs = list(utils.find_devices_by_hints(self.devices,
                                                 root_device_hints))
         self.assertEqual([], devs)
+
+    def test_find_devices_name(self):
+        root_device_hints = {'name': 's== /dev/sda'}
+        devs = list(utils.find_devices_by_hints(self.devices,
+                                                root_device_hints))
+        self.assertEqual([self.devices[0]], devs)
 
 
 class WaitForDisk(base.IronicLibTestCase):
