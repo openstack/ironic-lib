@@ -345,7 +345,7 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     if commit:
         # write to the disk
         dp.commit()
-        _trigger_device_rescan(dev)
+        trigger_device_rescan(dev)
     return part_dict
 
 
@@ -767,11 +767,8 @@ def _get_labelled_partition(device_path, label, node_uuid):
     :returns: block device file for partition if it exists; otherwise it
               returns None.
     """
+    partprobe(device_path)
     try:
-        utils.execute('partprobe', device_path, run_as_root=True,
-                      attempts=CONF.disk_utils.partprobe_attempts)
-
-        # lsblk command
         output, err = utils.execute('lsblk', '-Po', 'name,label', device_path,
                                     check_exit_code=[0, 1],
                                     use_standard_locale=True, run_as_root=True)
@@ -876,7 +873,50 @@ def fix_gpt_partition(device, node_uuid):
         raise exception.InstanceDeployFailure(msg)
 
 
-def _trigger_device_rescan(device):
+def udev_settle():
+    """Wait for the udev event queue to settle.
+
+    Wait for the udev event queue to settle to make sure all devices
+    are detected once the machine boots up.
+
+    :return: True on success, False otherwise.
+    """
+    LOG.debug('Waiting until udev event queue is empty')
+    try:
+        utils.execute('udevadm', 'settle')
+    except processutils.ProcessExecutionError as e:
+        LOG.warning('Something went wrong when waiting for udev '
+                    'to settle. Error: %s', e)
+        return False
+    else:
+        return True
+
+
+def partprobe(device, attempts=None):
+    """Probe partitions on the given device.
+
+    :param device: The block device containing paritions that is attempting
+                   to be updated.
+    :param attempts: Number of attempts to run partprobe, the default is read
+                     from the configuration.
+    :return: True on success, False otherwise.
+    """
+    if attempts is None:
+        attempts = CONF.disk_utils.partprobe_attempts
+
+    try:
+        utils.execute('partprobe', device, run_as_root=True, attempts=attempts)
+    except (processutils.UnknownArgumentError,
+            processutils.ProcessExecutionError, OSError) as e:
+        LOG.warning("Unable to probe for partitions on device %(device)s, "
+                    "the partitioning table may be broken. Error: %(error)s",
+                    {'device': device, 'error': e})
+        return False
+    else:
+        return True
+
+
+def trigger_device_rescan(device, attempts=None):
     """Sync and trigger device rescan.
 
     Disk partition performed via parted, when performed on a ramdisk
@@ -894,25 +934,25 @@ def _trigger_device_rescan(device):
 
     :param device: The block device containing paritions that is attempting
                    to be updated.
+    :param attempts: Number of attempts to run partprobe, the default is read
+                     from the configuration.
+    :return: True on success, False otherwise.
     """
-    # TODO(TheJulia): This helper method was broken out for re-use, and
-    # does not have an explicit test case for itself, and it should, but
-    # it's steps are fairly explicitly checked with mocks on execute in
-    # the partition code.
-    LOG.debug('Explicitly calling sync to force buffer/cache flush.')
+    LOG.debug('Explicitly calling sync to force buffer/cache flush')
     utils.execute('sync')
     # Make sure any additions to the partitioning are reflected in the
     # kernel.
-    LOG.debug('Waiting until udev event queue is empty')
-    utils.execute('udevadm', 'settle')
+    udev_settle()
+    partprobe(device, attempts=attempts)
     try:
-        utils.execute('partprobe', device, run_as_root=True,
-                      attempts=CONF.disk_utils.partprobe_attempts)
         # Also verify that the partitioning is correct now.
         utils.execute('sgdisk', '-v', device, run_as_root=True)
     except processutils.ProcessExecutionError as exc:
-        LOG.warning('Failed to verify partitioning after creating '
-                    'partition(s): %s', exc)
+        LOG.warning('Failed to verify partition tables on device %(dev)s: '
+                    '%(err)s', {'dev': device, 'err': exc})
+        return False
+    else:
+        return True
 
 
 def create_config_drive_partition(node_uuid, device, configdrive):
@@ -998,7 +1038,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                               'mkpart', 'primary', 'fat32', startlimit,
                               endlimit, run_as_root=True)
             # Trigger device rescan
-            _trigger_device_rescan(device)
+            trigger_device_rescan(device)
 
             upd_parts = set(part['number'] for part in list_partitions(device))
             new_part = set(upd_parts) - set(cur_parts)
@@ -1015,8 +1055,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             else:
                 config_drive_part = '%s%s' % (device, new_part.pop())
 
-            LOG.debug('Waiting until udev event queue is empty')
-            utils.execute('udevadm', 'settle')
+            udev_settle()
 
             # NOTE(vsaienko): check that devise actually exists,
             # it is not handled by udevadm when using ISCSI, for more info see:

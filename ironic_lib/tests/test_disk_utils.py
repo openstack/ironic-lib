@@ -845,9 +845,9 @@ class PopulateImageTestCase(base.IronicLibTestCase):
         self.assertFalse(mock_dd.called)
 
 
-# NOTE(TheJulia): _trigger_device_rescan is systemwide thus pointless
+# NOTE(TheJulia): trigger_device_rescan is systemwide thus pointless
 # to execute in the file test case. Also, CI unit test jobs lack sgdisk.
-@mock.patch.object(disk_utils, '_trigger_device_rescan', lambda *_: None)
+@mock.patch.object(disk_utils, 'trigger_device_rescan', lambda *_: None)
 @mock.patch.object(utils, 'wait_for_disk_to_become_available', lambda *_: None)
 @mock.patch.object(disk_utils, 'is_block_device', lambda d: True)
 @mock.patch.object(disk_utils, 'block_uuid', lambda p: 'uuid')
@@ -1253,8 +1253,13 @@ class WholeDiskPartitionTestCases(base.IronicLibTestCase):
                                'Failed to retrieve partition labels',
                                disk_utils._get_labelled_partition, self.dev,
                                self.config_part_label, self.node_uuid)
-        mock_execute.assert_called_once_with(
-            'partprobe', self.dev, run_as_root=True, attempts=10)
+        execute_calls = [
+            mock.call('partprobe', self.dev, run_as_root=True, attempts=10),
+            mock.call('lsblk', '-Po', 'name,label', self.dev,
+                      check_exit_code=[0, 1],
+                      use_standard_locale=True, run_as_root=True)
+        ]
+        mock_execute.assert_has_calls(execute_calls)
         self.assertEqual(1, mock_log.call_count)
 
     def _test_is_disk_larger_than_max_size(self, mock_execute, blk_out):
@@ -1880,3 +1885,37 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
         mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         mock_is_disk_gpt.assert_called_with(self.dev, self.node_uuid)
         mock_count.assert_called_once_with(self.dev)
+
+
+@mock.patch.object(utils, 'execute', autospec=True)
+class TriggerDeviceRescanTestCase(base.IronicLibTestCase):
+    def test_trigger(self, mock_execute):
+        self.assertTrue(disk_utils.trigger_device_rescan('/dev/fake'))
+        mock_execute.assert_has_calls([
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=10),
+            mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
+        ])
+
+    def test_custom_attempts(self, mock_execute):
+        self.assertTrue(
+            disk_utils.trigger_device_rescan('/dev/fake', attempts=1))
+        mock_execute.assert_has_calls([
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=1),
+            mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
+        ])
+
+    def test_fails(self, mock_execute):
+        mock_execute.side_effect = [('', '')] * 3 + [
+            processutils.ProcessExecutionError
+        ]
+        self.assertFalse(disk_utils.trigger_device_rescan('/dev/fake'))
+        mock_execute.assert_has_calls([
+            mock.call('sync'),
+            mock.call('udevadm', 'settle'),
+            mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=10),
+            mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
+        ])
