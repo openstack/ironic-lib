@@ -28,11 +28,11 @@ from urllib import parse as urlparse
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
-from oslo_service import loopingcall
 from oslo_utils import excutils
 from oslo_utils import specs_matcher
 from oslo_utils import strutils
 from oslo_utils import units
+import tenacity
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -477,20 +477,15 @@ def wait_for_disk_to_become_available(device):
     :raises: IronicException If the disk fails to become
         available.
     """
-    retries = [0]
     pids = ['']
     stderr = ['']
     interval = CONF.disk_partitioner.check_device_interval
     max_retries = CONF.disk_partitioner.check_device_max_retries
 
-    def _wait_for_disk(device, retries, max_retries, pids, stderr):
+    def _wait_for_disk():
         # A regex is likely overkill here, but variations in fuser
         # means we should likely use it.
         fuser_pids_re = re.compile(r'\d+')
-
-        retries[0] += 1
-        if retries[0] > max_retries:
-            raise loopingcall.LoopingCallDone()
 
         # There are 'psmisc' and 'busybox' versions of the 'fuser' program. The
         # 'fuser' programs differ in how they output data to stderr.  The
@@ -516,7 +511,7 @@ def wait_for_disk_to_become_available(device):
                                run_as_root=True)
 
             if not out and not err:
-                raise loopingcall.LoopingCallDone()
+                return True
 
             stderr[0] = err
             # NOTE: findall() returns a list of matches, or an empty list if no
@@ -526,13 +521,16 @@ def wait_for_disk_to_become_available(device):
         except processutils.ProcessExecutionError as exc:
             LOG.warning('Failed to check the device %(device)s with fuser:'
                         ' %(err)s', {'device': device, 'err': exc})
+        return False
 
-    timer = loopingcall.FixedIntervalLoopingCall(
-        _wait_for_disk,
-        device, retries, max_retries, pids, stderr)
-    timer.start(interval=interval).wait()
-
-    if retries[0] > max_retries:
+    retry = tenacity.retry(
+        retry=tenacity.retry_if_result(lambda r: not r),
+        stop=tenacity.stop_after_attempt(max_retries),
+        wait=tenacity.wait_fixed(interval),
+        reraise=True)
+    try:
+        retry(_wait_for_disk)()
+    except tenacity.RetryError:
         if pids[0]:
             raise exception.IronicException(
                 _('Processes with the following PIDs are holding '
