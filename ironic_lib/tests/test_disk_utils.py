@@ -1069,6 +1069,29 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
         ])
 
     @mock.patch.object(utils, 'execute', autospec=True)
+    def test_convert_image_retries_alternate_error(self, execute_mock):
+        ret_err = 'Failed to allocate memory: Cannot allocate memory\n'
+        execute_mock.side_effect = [
+            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
+            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
+            ('', ''),
+        ]
+
+        disk_utils.convert_image('source', 'dest', 'out_format')
+        convert_call = mock.call('qemu-img', 'convert', '-O',
+                                 'out_format', 'source', 'dest',
+                                 run_as_root=False,
+                                 prlimit=mock.ANY,
+                                 use_standard_locale=True)
+        execute_mock.assert_has_calls([
+            convert_call,
+            mock.call('sync'),
+            convert_call,
+            mock.call('sync'),
+            convert_call,
+        ])
+
+    @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image_retries_and_fails(self, execute_mock):
         ret_err = 'qemu: qemu_thread_create: Resource temporarily unavailable'
         execute_mock.side_effect = [

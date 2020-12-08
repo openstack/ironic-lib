@@ -394,7 +394,8 @@ def qemu_img_info(path):
 
 def _retry_on_res_temp_unavailable(exc):
     if (isinstance(exc, processutils.ProcessExecutionError)
-            and 'Resource temporarily unavailable' in exc.stderr):
+            and ('Resource temporarily unavailable' in exc.stderr
+                 or 'Cannot allocate memory' in exc.stderr)):
         return True
     return False
 
@@ -411,7 +412,8 @@ def convert_image(source, dest, out_format, run_as_root=False):
                       prlimit=_qemu_img_limits(),
                       use_standard_locale=True)
     except processutils.ProcessExecutionError as e:
-        if 'Resource temporarily unavailable' in e.stderr:
+        if ('Resource temporarily unavailable' in e.stderr
+            or 'Cannot allocate memory' in e.stderr):
             LOG.debug('Failed to convert image, retrying. Error: %s', e)
             # Sync disk caches before the next attempt
             utils.execute('sync')
