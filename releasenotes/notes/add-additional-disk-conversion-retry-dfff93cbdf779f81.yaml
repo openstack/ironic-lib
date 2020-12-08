@@ -1,0 +1,11 @@
+---
+fixes:
+  - |
+    Adds an additional error to look for in the ``qemu-img`` image conversion
+    retry logic to automatically retry if 'Cannot allocate memory' is
+    encountered, as ``qemu-img`` makes a number of memory allocation requests
+    and the most likely is upon creating the convesrsion thread resulting in
+    'qemu: qemu_thread_create_: Resource temporarily unavailable'
+    but other memory allocation fails can result in
+    'Failed to allocate memory: Cannot allocate memory'. Both types of errors
+    are now checked and automatically retried upon.
