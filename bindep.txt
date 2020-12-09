@@ -1,0 +1,9 @@
+# these are needed to compile Python dependencies from sources
+python-dev [platform:dpkg test]
+python3-all-dev [platform:dpkg test]
+python-devel [platform:rpm test]
+python3-devel [platform:rpm test]
+build-essential [platform:dpkg test]
+libffi-dev [platform:dpkg test]
+libffi-devel [platform:rpm test]
+
