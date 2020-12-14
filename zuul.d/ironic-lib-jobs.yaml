@@ -19,6 +19,8 @@
         BUILD_TIMEOUT: 900
         IRONIC_BUILD_DEPLOY_RAMDISK: True
         IRONIC_TEMPEST_BUILD_TIMEOUT: 900
+      devstack_services:
+        dstat: false
 
 - job:
     name: ironic-lib-wholedisk-bios-ipmi-direct-src
