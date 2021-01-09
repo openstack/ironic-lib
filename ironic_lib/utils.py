@@ -18,12 +18,15 @@
 
 """Utilities and helper functions."""
 
+import contextlib
 import copy
 import errno
 import ipaddress
 import logging
 import os
 import re
+import shutil
+import tempfile
 from urllib import parse as urlparse
 
 from oslo_concurrency import processutils
@@ -585,3 +588,53 @@ def get_route_source(dest, ignore_link_local=True):
     except (IndexError, ValueError):
         LOG.debug('No route to host %(dest)s, route record: %(rec)s',
                   {'dest': dest, 'rec': out})
+
+
+@contextlib.contextmanager
+def mounted(source, dest=None, opts=None, fs_type=None):
+    """A context manager for a temporary mount.
+
+    :param source: A device to mount.
+    :param dest: Mount destination. If not specified, a temporary directory
+        will be created and removed afterwards. An existing destination is
+        not removed.
+    :param opts: Mount options (``-o`` argument).
+    :param fs_type: File system type (``-t`` argument).
+    :returns: A generator yielding the destination.
+    """
+    params = []
+    if opts:
+        params.extend(['-o', ','.join(opts)])
+    if fs_type:
+        params.extend(['-t', fs_type])
+
+    if dest is None:
+        dest = tempfile.mkdtemp()
+        clean_up = True
+    else:
+        clean_up = False
+
+    mounted = False
+    try:
+        execute("mount", source, dest, *params, run_as_root=True)
+        mounted = True
+        yield dest
+    finally:
+        if mounted:
+            try:
+                execute("umount", dest, run_as_root=True)
+            except (EnvironmentError,
+                    processutils.ProcessExecutionError) as exc:
+                LOG.warning(
+                    'Unable to unmount temporary location %(dest)s: %(err)s',
+                    {'dest': dest, 'err': exc})
+                # NOTE(dtantsur): don't try to remove a still mounted location
+                clean_up = False
+
+        if clean_up:
+            try:
+                shutil.rmtree(dest)
+            except EnvironmentError as exc:
+                LOG.warning(
+                    'Unable to remove temporary location %(dest)s: %(err)s',
+                    {'dest': dest, 'err': exc})

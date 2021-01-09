@@ -668,3 +668,68 @@ class GetRouteSourceTestCase(base.IronicLibTestCase):
 
         source = utils.get_route_source('XXX')
         self.assertIsNone(source)
+
+
+@mock.patch('shutil.rmtree', autospec=True)
+@mock.patch.object(utils, 'execute', autospec=True)
+@mock.patch('tempfile.mkdtemp', autospec=True)
+class MountedTestCase(base.IronicLibTestCase):
+
+    def test_temporary(self, mock_temp, mock_execute, mock_rmtree):
+        with utils.mounted('/dev/fake') as path:
+            self.assertIs(path, mock_temp.return_value)
+        mock_execute.assert_has_calls([
+            mock.call("mount", '/dev/fake', mock_temp.return_value,
+                      run_as_root=True),
+            mock.call("umount", mock_temp.return_value, run_as_root=True),
+        ])
+        mock_rmtree.assert_called_once_with(mock_temp.return_value)
+
+    def test_with_dest(self, mock_temp, mock_execute, mock_rmtree):
+        with utils.mounted('/dev/fake', '/mnt/fake') as path:
+            self.assertEqual('/mnt/fake', path)
+        mock_execute.assert_has_calls([
+            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True),
+        ])
+        self.assertFalse(mock_temp.called)
+        self.assertFalse(mock_rmtree.called)
+
+    def test_with_opts(self, mock_temp, mock_execute, mock_rmtree):
+        with utils.mounted('/dev/fake', '/mnt/fake',
+                           opts=['ro', 'foo=bar']) as path:
+            self.assertEqual('/mnt/fake', path)
+        mock_execute.assert_has_calls([
+            mock.call("mount", '/dev/fake', '/mnt/fake', '-o', 'ro,foo=bar',
+                      run_as_root=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True),
+        ])
+
+    def test_with_type(self, mock_temp, mock_execute, mock_rmtree):
+        with utils.mounted('/dev/fake', '/mnt/fake',
+                           fs_type='iso9660') as path:
+            self.assertEqual('/mnt/fake', path)
+        mock_execute.assert_has_calls([
+            mock.call("mount", '/dev/fake', '/mnt/fake', '-t', 'iso9660',
+                      run_as_root=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True),
+        ])
+
+    def test_failed_to_mount(self, mock_temp, mock_execute, mock_rmtree):
+        mock_execute.side_effect = OSError
+        self.assertRaises(OSError, utils.mounted('/dev/fake').__enter__)
+        mock_execute.assert_called_once_with("mount", '/dev/fake',
+                                             mock_temp.return_value,
+                                             run_as_root=True)
+        mock_rmtree.assert_called_once_with(mock_temp.return_value)
+
+    def test_failed_to_unmount(self, mock_temp, mock_execute, mock_rmtree):
+        mock_execute.side_effect = [('', ''),
+                                    processutils.ProcessExecutionError]
+        with utils.mounted('/dev/fake', '/mnt/fake') as path:
+            self.assertEqual('/mnt/fake', path)
+        mock_execute.assert_has_calls([
+            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True),
+        ])
+        self.assertFalse(mock_rmtree.called)

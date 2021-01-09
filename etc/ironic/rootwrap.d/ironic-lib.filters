@@ -21,6 +21,7 @@ partprobe: CommandFilter, partprobe, root
 mkswap: CommandFilter, mkswap, root
 mkfs: CommandFilter, mkfs, root
 dd: CommandFilter, dd, root
+mount: CommandFilter, mount, root
 
 # ironic_lib/disk_partitioner.py
 fuser: CommandFilter, fuser, root
