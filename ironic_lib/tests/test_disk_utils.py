@@ -800,6 +800,58 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
         disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
         mock_exec.assert_has_calls(expected_call)
 
+    def test_destroy_disk_metadata_ebr(self, mock_exec):
+        expected_calls = [mock.call('wipefs', '--force', '--all', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('blockdev', '--getsz', 'fake-dev',
+                                    check_exit_code=[0],
+                                    run_as_root=True),
+                          mock.call('dd', 'bs=512', 'if=/dev/zero',
+                                    'of=fake-dev', 'count=2',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('sgdisk', '-Z', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True)]
+        mock_exec.side_effect = iter([
+            (None, None),
+            ('2\n', None),  # an EBR is 2 sectors
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None)])
+        disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
+        mock_exec.assert_has_calls(expected_calls)
+
+    def test_destroy_disk_metadata_tiny_partition(self, mock_exec):
+        expected_calls = [mock.call('wipefs', '--force', '--all', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('blockdev', '--getsz', 'fake-dev',
+                                    check_exit_code=[0],
+                                    run_as_root=True),
+                          mock.call('dd', 'bs=512', 'if=/dev/zero',
+                                    'of=fake-dev', 'count=33',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('dd', 'bs=512', 'if=/dev/zero',
+                                    'of=fake-dev', 'count=33', 'seek=9',
+                                    run_as_root=True,
+                                    use_standard_locale=True),
+                          mock.call('sgdisk', '-Z', 'fake-dev',
+                                    run_as_root=True,
+                                    use_standard_locale=True)]
+        mock_exec.side_effect = iter([
+            (None, None),
+            ('42\n', None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None)])
+        disk_utils.destroy_disk_metadata(self.dev, self.node_uuid)
+        mock_exec.assert_has_calls(expected_calls)
+
 
 @mock.patch.object(utils, 'execute', autospec=True)
 class GetDeviceBlockSizeTestCase(base.IronicLibTestCase):
