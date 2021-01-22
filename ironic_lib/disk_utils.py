@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import base64
 import gzip
 import io
 import logging
@@ -27,7 +28,6 @@ import time
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
-from oslo_serialization import base64
 from oslo_utils import excutils
 from oslo_utils import imageutils
 from oslo_utils import units
@@ -551,7 +551,7 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
                                                    dir=tempdir)
 
     try:
-        data = io.BytesIO(base64.decode_as_bytes(data))
+        data = io.BytesIO(base64.b64decode(data))
     except Exception as exc:
         if isinstance(data, bytes):
             LOG.debug('Config drive for node %(node)s is not base64 encoded '

@@ -53,8 +53,8 @@ class TestIronicException(base.IronicLibTestCase):
         e = TestException(spam=Unserializable(), ham='eggs')
         message = log_mock.call_args[0][0] % log_mock.call_args[0][1]
         self.assertIsNotNone(
-            re.search('spam: .*JSON.* ValueError: Circular reference detected;'
-                      '.*string.* NotImplementedError: nostr', message)
+            re.search('spam: .*JSON.* NotImplementedError: nostr', message),
+            message
         )
         self.assertEqual({'ham': '"eggs"', 'code': 500}, e.kwargs)
 
@@ -66,6 +66,6 @@ class TestIronicException(base.IronicLibTestCase):
                           ham='eggs')
         message = log_mock.call_args[0][0] % log_mock.call_args[0][1]
         self.assertIsNotNone(
-            re.search('spam: .*JSON.* ValueError: Circular reference detected;'
-                      '.*string.* NotImplementedError: nostr', message)
+            re.search('spam: .*JSON.* NotImplementedError: nostr', message),
+            message
         )
