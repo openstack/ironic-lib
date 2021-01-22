@@ -944,6 +944,17 @@ class GetConfigdriveTestCase(base.IronicLibTestCase):
                                           fileobj=mock.ANY)
         mock_copy.assert_called_once_with(mock.ANY, mock.ANY)
 
+    def test_get_configdrive_binary(self, mock_requests, mock_copy):
+        mock_requests.return_value = mock.MagicMock(content=b'content')
+        tempdir = tempfile.mkdtemp()
+        (size, path) = disk_utils._get_configdrive('http://1.2.3.4/cd',
+                                                   'fake-node-uuid',
+                                                   tempdir=tempdir)
+        self.assertTrue(path.startswith(tempdir))
+        self.assertEqual(b'content', open(path, 'rb').read())
+        mock_requests.assert_called_once_with('http://1.2.3.4/cd')
+        self.assertFalse(mock_copy.called)
+
     @mock.patch.object(gzip, 'GzipFile', autospec=True)
     def test_get_configdrive_base64_string(self, mock_gzip, mock_requests,
                                            mock_copy):
