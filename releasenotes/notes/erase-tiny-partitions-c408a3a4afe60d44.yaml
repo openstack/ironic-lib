@@ -1,0 +1,6 @@
+---
+fixes:
+  - |
+    Fixes cleaning errors when trying to erase a GPT from a partition
+    which is smaller than a GPT (33 sectors).
+
