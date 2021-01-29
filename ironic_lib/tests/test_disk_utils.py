@@ -22,7 +22,6 @@ from unittest import mock
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
-from oslo_serialization import base64
 from oslo_utils import imageutils
 import requests
 
@@ -1013,14 +1012,10 @@ class GetConfigdriveTestCase(base.IronicLibTestCase):
                           'http://1.2.3.4/cd', 'fake-node-uuid')
         self.assertFalse(mock_copy.called)
 
-    @mock.patch.object(base64, 'decode_as_bytes', autospec=True)
-    def test_get_configdrive_base64_error(self, mock_b64, mock_requests,
-                                          mock_copy):
-        mock_b64.side_effect = TypeError
+    def test_get_configdrive_base64_error(self, mock_requests, mock_copy):
         self.assertRaises(exception.InstanceDeployFailure,
                           disk_utils._get_configdrive,
                           'malformed', 'fake-node-uuid')
-        mock_b64.assert_called_once_with('malformed')
         self.assertFalse(mock_copy.called)
 
     @mock.patch.object(gzip, 'GzipFile', autospec=True)

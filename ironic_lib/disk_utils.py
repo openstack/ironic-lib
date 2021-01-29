@@ -561,9 +561,11 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
 
     try:
         data = io.BytesIO(base64.decode_as_bytes(data))
-    except TypeError:
-        error_msg = (_('Config drive for node %s is not base64 encoded '
-                       'or the content is malformed.') % node_uuid)
+    except Exception as exc:
+        error_msg = (_('Config drive for node %(node)s is not base64 encoded '
+                       'or the content is malformed. %(cls)s: %(err)s.')
+                     % {'node': node_uuid, 'err': exc,
+                        'cls': type(exc).__name__})
         if is_url:
             error_msg += _(' Downloaded from "%s".') % configdrive
         raise exception.InstanceDeployFailure(error_msg)
