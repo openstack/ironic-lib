@@ -559,20 +559,34 @@ def _get_configdrive(configdrive, node_uuid, tempdir=None):
     else:
         data = configdrive
 
-    try:
-        data = io.BytesIO(base64.decode_as_bytes(data))
-    except Exception as exc:
-        error_msg = (_('Config drive for node %(node)s is not base64 encoded '
-                       'or the content is malformed. %(cls)s: %(err)s.')
-                     % {'node': node_uuid, 'err': exc,
-                        'cls': type(exc).__name__})
-        if is_url:
-            error_msg += _(' Downloaded from "%s".') % configdrive
-        raise exception.InstanceDeployFailure(error_msg)
-
     configdrive_file = tempfile.NamedTemporaryFile(delete=False,
                                                    prefix='configdrive',
                                                    dir=tempdir)
+
+    try:
+        data = io.BytesIO(base64.decode_as_bytes(data))
+    except Exception as exc:
+        if isinstance(data, bytes):
+            LOG.debug('Config drive for node %(node)s is not base64 encoded '
+                      '(%(error)s), assuming binary',
+                      {'node': node_uuid, 'error': exc})
+            configdrive_mb = int(math.ceil(len(data) / units.Mi))
+            configdrive_file.write(data)
+            configdrive_file.close()
+            return (configdrive_mb, configdrive_file.name)
+        else:
+            configdrive_file.close()
+            utils.unlink_without_raise(configdrive_file.name)
+
+            error_msg = (_('Config drive for node %(node)s is not base64 '
+                           'encoded or the content is malformed. '
+                           '%(cls)s: %(err)s.')
+                         % {'node': node_uuid, 'err': exc,
+                            'cls': type(exc).__name__})
+            if is_url:
+                error_msg += _(' Downloaded from "%s".') % configdrive
+            raise exception.InstanceDeployFailure(error_msg)
+
     configdrive_mb = 0
     with gzip.GzipFile('configdrive', 'rb', fileobj=data) as gunzipped:
         try:
