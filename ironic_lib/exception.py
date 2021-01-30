@@ -24,10 +24,10 @@ SHOULD include dedicated exception logging.
 
 import collections
 from http import client as http_client
+import json
 
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
 from oslo_utils import excutils
 
 from ironic_lib.common.i18n import _
@@ -67,7 +67,7 @@ def _ensure_exception_kwargs_serializable(exc_class_name, kwargs):
         constructor.
     :returns: a dictionary of serializable keyword arguments.
     """
-    serializers = [(jsonutils.dumps, _('when converting to JSON')),
+    serializers = [(json.dumps, _('when converting to JSON')),
                    (str, _('when converting to string'))]
     exceptions = collections.defaultdict(list)
     serializable_kwargs = {}
