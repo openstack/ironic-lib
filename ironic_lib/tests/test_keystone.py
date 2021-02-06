@@ -114,3 +114,8 @@ class AuthConfTestCase(base.IronicLibTestCase):
                     'tenant_name', 'project_name', 'trust_id',
                     'domain_id', 'user_domain_id', 'project_domain_id'}
         self.assertTrue(expected.issubset(names))
+
+    def test_os_service_types_alias(self):
+        keystone.register_auth_opts(self.cfg_fixture.conf, 'barbican')
+        self.assertEqual(self.cfg_fixture.conf.barbican.service_type,
+                         'key-manager')

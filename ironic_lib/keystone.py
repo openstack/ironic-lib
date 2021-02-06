@@ -19,6 +19,7 @@ from keystoneauth1 import exceptions as ks_exception
 from keystoneauth1 import loading as ks_loading
 from keystoneauth1 import service_token
 from keystoneauth1 import token_endpoint
+import os_service_types
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -155,10 +156,14 @@ def register_auth_opts(conf, group, service_type=None):
     CONF.set_default('auth_type', default='password', group=group)
     ks_loading.register_adapter_conf_options(conf, group)
     conf.set_default('valid_interfaces', DEFAULT_VALID_INTERFACES, group=group)
-    # TODO(pas-ha) use os-service-type to try find the service_type by the
-    # config group name assuming it is a project name (e.g. 'glance')
     if service_type:
         conf.set_default('service_type', service_type, group=group)
+    else:
+        types = os_service_types.get_service_types()
+        key = 'ironic-inspector' if group == 'inspector' else group
+        service_types = types.service_types_by_project.get(key)
+        if service_types:
+            conf.set_default('service_type', service_types[0], group=group)
 
 
 def add_auth_opts(options, service_type=None):
