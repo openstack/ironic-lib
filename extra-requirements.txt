@@ -1,0 +1,3 @@
+# This file mirrors all extra requirements from setup.cfg and must be kept
+# in sync. It is used both in unit tests and when building docs.
+keystoneauth1>=4.2.0 # Apache-2.0
