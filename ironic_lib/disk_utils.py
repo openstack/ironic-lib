@@ -24,6 +24,7 @@ import shutil
 import stat
 import tempfile
 import time
+import warnings
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -212,19 +213,37 @@ def get_device_information(device, probe=False, fields=None):
         return {}
 
 
+def find_efi_partition(device):
+    """Looks for the EFI partition on a given device.
+
+    A boot partition on a GPT disk is assumed to be an EFI partition as well.
+
+    :param device: the name of the device
+    :return: the EFI partition record from `list_partitions` or None
+    """
+    is_gpt = get_partition_table_type(device) == 'gpt'
+    for part in list_partitions(device):
+        flags = {x.strip() for x in part['flags'].split(',')}
+        if 'esp' in flags or ('boot' in flags and is_gpt):
+            LOG.debug("Found EFI partition %s on device %s", part, device)
+            return part
+    else:
+        LOG.debug("No efi partition found on device %s", device)
+
+
 def get_uefi_disk_identifier(dev):
     """Get the uuid from the disk being exposed by the ramdisk.
 
-    This uuid is appended to the pxe config which will then be set as the root
-    and load the bootx64.efi file using chainloader and boot the machine.
-    This is helpful in deployments to nodes with multiple disks.
-
-    https://wiki.gentoo.org/wiki/GRUB2/Chainloading
+    DEPRECATED: use find_efi_partition with get_device_information instead.
 
     :param dev: Path for the already populated disk device.
     :raises InstanceDeployFailure: Image is not UEFI bootable.
     :returns: The UUID of the partition.
     """
+    warnings.warn("get_uefi_disk_identifier is deprecated, use "
+                  "find_efi_partition and get_partition_information instead",
+                  DeprecationWarning)
+
     partition_id = None
     try:
         report, _ = utils.execute('fdisk', '-l', dev, run_as_root=True)

@@ -2047,3 +2047,58 @@ class GetPartitionTableTypeTestCase(base.IronicLibTestCase):
         mock_get_device_info.return_value = {}
         self.assertIsNone(disk_utils.get_partition_table_type('/dev/fake'))
         mock_get_device_info.assert_called_once_with('/dev/fake', probe=True)
+
+
+PARTED_OUTPUT_UNFORMATTED = '''Model: whatever
+Disk /dev/sda: 450GB
+Sector size (logical/physical): 512B/512B
+Partition Table: {}
+Disk Flags:
+
+Number  Start   End     Size    File system  Name  Flags
+14      1049kB  5243kB  4194kB                     bios_grub
+15      5243kB  116MB   111MB   fat32              boot, esp
+ 1      116MB   2361MB  2245MB  ext4
+'''
+
+
+@mock.patch.object(disk_utils, 'list_partitions', autospec=True)
+@mock.patch.object(disk_utils, 'get_partition_table_type', autospec=True)
+class FindEfiPartitionTestCase(base.IronicLibTestCase):
+
+    def test_find_efi_partition(self, mocked_type, mocked_parts):
+        mocked_parts.return_value = [
+            {'number': '1', 'flags': ''},
+            {'number': '14', 'flags': 'bios_grub'},
+            {'number': '15', 'flags': 'esp, boot'},
+        ]
+        ret = disk_utils.find_efi_partition('/dev/sda')
+        self.assertEqual({'number': '15', 'flags': 'esp, boot'}, ret)
+
+    def test_find_efi_partition_only_boot_flag_gpt(self, mocked_type,
+                                                   mocked_parts):
+        mocked_type.return_value = 'gpt'
+        mocked_parts.return_value = [
+            {'number': '1', 'flags': ''},
+            {'number': '14', 'flags': 'bios_grub'},
+            {'number': '15', 'flags': 'boot'},
+        ]
+        ret = disk_utils.find_efi_partition('/dev/sda')
+        self.assertEqual({'number': '15', 'flags': 'boot'}, ret)
+
+    def test_find_efi_partition_only_boot_flag_mbr(self, mocked_type,
+                                                   mocked_parts):
+        mocked_type.return_value = 'msdos'
+        mocked_parts.return_value = [
+            {'number': '1', 'flags': ''},
+            {'number': '14', 'flags': 'bios_grub'},
+            {'number': '15', 'flags': 'boot'},
+        ]
+        self.assertIsNone(disk_utils.find_efi_partition('/dev/sda'))
+
+    def test_find_efi_partition_not_found(self, mocked_type, mocked_parts):
+        mocked_parts.return_value = [
+            {'number': '1', 'flags': ''},
+            {'number': '14', 'flags': 'bios_grub'},
+        ]
+        self.assertIsNone(disk_utils.find_efi_partition('/dev/sda'))
