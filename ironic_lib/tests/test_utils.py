@@ -680,8 +680,9 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertIs(path, mock_temp.return_value)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', mock_temp.return_value,
-                      run_as_root=True),
-            mock.call("umount", mock_temp.return_value, run_as_root=True),
+                      run_as_root=True, attempts=1, delay_on_retry=True),
+            mock.call("umount", mock_temp.return_value, run_as_root=True,
+                      attempts=3, delay_on_retry=True),
         ])
         mock_rmtree.assert_called_once_with(mock_temp.return_value)
 
@@ -689,8 +690,10 @@ class MountedTestCase(base.IronicLibTestCase):
         with utils.mounted('/dev/fake', '/mnt/fake') as path:
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
-            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True),
+            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True,
+                      attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=3, delay_on_retry=True),
         ])
         self.assertFalse(mock_temp.called)
         self.assertFalse(mock_rmtree.called)
@@ -701,8 +704,9 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', '/mnt/fake', '-o', 'ro,foo=bar',
-                      run_as_root=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True),
+                      run_as_root=True, attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=3, delay_on_retry=True),
         ])
 
     def test_with_type(self, mock_temp, mock_execute, mock_rmtree):
@@ -711,8 +715,9 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', '/mnt/fake', '-t', 'iso9660',
-                      run_as_root=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True),
+                      run_as_root=True, attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=3, delay_on_retry=True),
         ])
 
     def test_failed_to_mount(self, mock_temp, mock_execute, mock_rmtree):
@@ -720,7 +725,9 @@ class MountedTestCase(base.IronicLibTestCase):
         self.assertRaises(OSError, utils.mounted('/dev/fake').__enter__)
         mock_execute.assert_called_once_with("mount", '/dev/fake',
                                              mock_temp.return_value,
-                                             run_as_root=True)
+                                             run_as_root=True,
+                                             attempts=1,
+                                             delay_on_retry=True)
         mock_rmtree.assert_called_once_with(mock_temp.return_value)
 
     def test_failed_to_unmount(self, mock_temp, mock_execute, mock_rmtree):
@@ -729,7 +736,9 @@ class MountedTestCase(base.IronicLibTestCase):
         with utils.mounted('/dev/fake', '/mnt/fake') as path:
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
-            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True),
+            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True,
+                      attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=3, delay_on_retry=True),
         ])
         self.assertFalse(mock_rmtree.called)

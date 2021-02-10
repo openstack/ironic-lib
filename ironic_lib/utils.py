@@ -591,7 +591,8 @@ def get_route_source(dest, ignore_link_local=True):
 
 
 @contextlib.contextmanager
-def mounted(source, dest=None, opts=None, fs_type=None):
+def mounted(source, dest=None, opts=None, fs_type=None,
+            mount_attempts=1, umount_attempts=3):
     """A context manager for a temporary mount.
 
     :param source: A device to mount.
@@ -600,6 +601,8 @@ def mounted(source, dest=None, opts=None, fs_type=None):
         not removed.
     :param opts: Mount options (``-o`` argument).
     :param fs_type: File system type (``-t`` argument).
+    :param mount_attempts: A number of attempts to mount the device.
+    :param umount_attempts: A number of attempts to unmount the device.
     :returns: A generator yielding the destination.
     """
     params = []
@@ -616,13 +619,15 @@ def mounted(source, dest=None, opts=None, fs_type=None):
 
     mounted = False
     try:
-        execute("mount", source, dest, *params, run_as_root=True)
+        execute("mount", source, dest, *params, run_as_root=True,
+                attempts=mount_attempts, delay_on_retry=True)
         mounted = True
         yield dest
     finally:
         if mounted:
             try:
-                execute("umount", dest, run_as_root=True)
+                execute("umount", dest, run_as_root=True,
+                        attempts=umount_attempts, delay_on_retry=True)
             except (EnvironmentError,
                     processutils.ProcessExecutionError) as exc:
                 LOG.warning(
