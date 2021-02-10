@@ -25,6 +25,7 @@ import ipaddress
 import logging
 import os
 import re
+import shlex
 import shutil
 import tempfile
 from urllib import parse as urlparse
@@ -638,3 +639,16 @@ def mounted(source, dest=None, opts=None, fs_type=None):
                 LOG.warning(
                     'Unable to remove temporary location %(dest)s: %(err)s',
                     {'dest': dest, 'err': exc})
+
+
+def parse_device_tags(output):
+    """Parse tags from the lsblk/blkid output.
+
+    Parses format KEY="VALUE" KEY2="VALUE2".
+
+    :return: a generator yielding dicts with information from each line.
+    """
+    for line in output.strip().split('\n'):
+        if line.strip():
+            yield {key: value for key, value in (v.split('=', 1)
+                                                 for v in shlex.split(line))}
