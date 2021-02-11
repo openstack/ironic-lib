@@ -57,6 +57,10 @@ class IronicLibTestCase(test_base.BaseTestCase):
             # subprocess.Popen is a class
             self.patch(subprocess, 'Popen', DoNotCallPopen)
 
+    def config(self, **kw):
+        """Override config options for a test."""
+        self.cfg_fixture.config(**kw)
+
 
 def do_not_call(*args, **kwargs):
     """Helper function to raise an exception if it is called"""

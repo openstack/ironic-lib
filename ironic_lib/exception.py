@@ -181,3 +181,16 @@ class Unauthorized(IronicException):
 
 class ConfigInvalid(IronicException):
     _msg_fmt = _("Invalid configuration file. %(error_msg)s")
+
+
+class CatalogNotFound(IronicException):
+    _msg_fmt = _("Service type %(service_type)s with endpoint type "
+                 "%(endpoint_type)s not found in keystone service catalog.")
+
+
+class KeystoneUnauthorized(IronicException):
+    _msg_fmt = _("Not authorized in Keystone.")
+
+
+class KeystoneFailure(IronicException):
+    pass
