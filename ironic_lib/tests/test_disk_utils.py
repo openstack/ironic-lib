@@ -383,7 +383,7 @@ class WorkOnDiskTestCase(base.IronicLibTestCase):
 
         self.mock_mp.return_value = {'PReP Boot partition': prep_part,
                                      'root': root_part}
-        self.mock_ibd.return_vaue = True
+        self.mock_ibd.return_value = True
         calls = [mock.call(root_part),
                  mock.call(prep_part)]
         disk_utils.work_on_disk(self.dev, self.root_mb,
