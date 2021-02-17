@@ -733,3 +733,22 @@ class MountedTestCase(base.IronicLibTestCase):
             mock.call("umount", '/mnt/fake', run_as_root=True),
         ])
         self.assertFalse(mock_rmtree.called)
+
+
+class ParseDeviceTagsTestCase(base.IronicLibTestCase):
+
+    def test_empty(self):
+        result = utils.parse_device_tags("\n\n")
+        self.assertEqual([], list(result))
+
+    def test_parse(self):
+        tags = """
+ PTUUID="00016a50" PTTYPE="dos" LABEL=""
+TYPE="vfat" PART_ENTRY_SCHEME="gpt" PART_ENTRY_NAME="EFI System Partition"
+        """
+        result = list(utils.parse_device_tags(tags))
+        self.assertEqual([
+            {'PTUUID': '00016a50', 'PTTYPE': 'dos', 'LABEL': ''},
+            {'TYPE': 'vfat', 'PART_ENTRY_SCHEME': 'gpt',
+             'PART_ENTRY_NAME': 'EFI System Partition'}
+        ], result)

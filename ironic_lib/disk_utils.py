@@ -20,7 +20,6 @@ import logging
 import math
 import os
 import re
-import shlex
 import shutil
 import stat
 import tempfile
@@ -176,6 +175,41 @@ def get_disk_identifier(dev):
                                     attempts=5,
                                     delay_on_retry=True)
     return disk_identifier[0]
+
+
+def get_partition_table_type(device):
+    """Get partition table type, msdos or gpt.
+
+    :param device: the name of the device
+    :return: dos, gpt or None
+    """
+    return get_device_information(device, probe=True).get('PTTYPE')
+
+
+def get_device_information(device, probe=False, fields=None):
+    """Get information about a device using blkid.
+
+    Can be applied to all block devices: disks, RAID, partitions.
+
+    :param device: Device name.
+    :param probe: Switch to low-level probing mode.
+    :param fields: A list of fields to request (all by default).
+    :return: A dictionary with requested fields as keys.
+    :raises: ProcessExecutionError
+    """
+    args = []
+    if probe:
+        args.append('--probe')
+    if fields:
+        args += sum((['--match-tag', field] for field in fields), [])
+
+    output, err = utils.execute('blkid', device, *args,
+                                use_standard_locale=True, run_as_root=True)
+    if output.strip():
+        output = output.split(':', 1)[1]
+        return next(utils.parse_device_tags(output))
+    else:
+        return {}
 
 
 def get_uefi_disk_identifier(dev):
@@ -435,15 +469,14 @@ def block_uuid(dev):
 
     Try to fetch the UUID, if that fails, try to fetch the PARTUUID.
     """
-    out, _err = utils.execute('blkid', '-s', 'UUID', '-o', 'value', dev,
-                              run_as_root=True, check_exit_code=[0])
-    if not out:
+    info = get_device_information(dev, fields=['UUID', 'PARTUUID'])
+    if info.get('UUID'):
+        return info['UUID']
+    else:
         LOG.debug('Falling back to partition UUID as the block device UUID '
                   'was not found while examining %(device)s',
                   {'device': dev})
-        out, _err = utils.execute('blkid', '-s', 'PARTUUID', '-o', 'value',
-                                  dev, run_as_root=True, check_exit_code=[0])
-    return out.strip()
+        return info.get('PARTUUID', '')
 
 
 def get_image_mb(image_path, virtual_size=True):
@@ -820,11 +853,7 @@ def _get_labelled_partition(device_path, label, node_uuid):
 
     found_part = None
     if output:
-        for device in output.split('\n'):
-            dev = {key: value for key, value in (v.split('=', 1)
-                   for v in shlex.split(device))}
-            if not dev:
-                continue
+        for dev in utils.parse_device_tags(output):
             if dev['LABEL'].upper() == label.upper():
                 if found_part:
                     found_2 = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
@@ -838,31 +867,6 @@ def _get_labelled_partition(device_path, label, node_uuid):
                 found_part = '/dev/%(part)s' % {'part': dev['NAME'].strip()}
 
     return found_part
-
-
-def _is_disk_gpt_partitioned(device, node_uuid):
-    """Checks if the disk is GPT partitioned
-
-    :param device: The device path.
-    :param node_uuid: UUID of the Node. Used for logging.
-    :raises: InstanceDeployFailure, if any disk partitioning related
-        commands fail.
-    :param node_uuid: UUID of the Node
-    :returns: Boolean. Returns True if disk is GPT partitioned
-    """
-    try:
-        stdout, _stderr = utils.execute(
-            'blkid', '-p', '-o', 'value', '-s', 'PTTYPE', device,
-            use_standard_locale=True, run_as_root=True)
-    except (processutils.UnknownArgumentError,
-            processutils.ProcessExecutionError, OSError) as e:
-        msg = (_('Failed to retrieve partition table type for disk %(disk)s '
-                 'for node %(node)s. Error: %(error)s') %
-               {'disk': device, 'node': node_uuid, 'error': e})
-        LOG.error(msg)
-        raise exception.InstanceDeployFailure(msg)
-
-    return (stdout.lower().strip() == 'gpt')
 
 
 def _fix_gpt_structs(device, node_uuid):
@@ -899,7 +903,7 @@ def fix_gpt_partition(device, node_uuid):
     :raises: InstanceDeployFailure if exception is caught.
     """
     try:
-        disk_is_gpt_partitioned = _is_disk_gpt_partitioned(device, node_uuid)
+        disk_is_gpt_partitioned = (get_partition_table_type(device) == 'gpt')
         if disk_is_gpt_partitioned:
             _fix_gpt_structs(device, node_uuid)
     except Exception as e:
@@ -1032,7 +1036,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
         else:
             cur_parts = set(part['number'] for part in list_partitions(device))
 
-            if _is_disk_gpt_partitioned(device, node_uuid):
+            if get_partition_table_type(device) == 'gpt':
                 create_option = '0:-%dMB:0' % MAX_CONFIG_DRIVE_SIZE_MB
                 utils.execute('sgdisk', '-n', create_option, device,
                               run_as_root=True)
