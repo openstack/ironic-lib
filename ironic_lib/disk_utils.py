@@ -104,7 +104,7 @@ def list_partitions(device):
     :param device: The device path.
     :returns: list of dictionaries (one per partition) with keys:
               number, start, end, size (in MiB), filesystem, partition_name,
-              flags
+              flags, path.
     """
     output = utils.execute(
         'parted', '-s', '-m', device, 'unit', 'MiB', 'print',
@@ -127,7 +127,9 @@ def list_partitions(device):
         # Cast int fields to ints (some are floats and we round them down)
         groups = [int(float(x)) if i < 4 else x
                   for i, x in enumerate(match.groups())]
-        result.append(dict(zip(fields, groups)))
+        item = dict(zip(fields, groups))
+        item['path'] = partition_index_to_path(device, item['number'])
+        result.append(item)
     return result
 
 
@@ -266,11 +268,20 @@ def get_uefi_disk_identifier(dev):
     return disk_identifier
 
 
-def is_iscsi_device(dev, node_uuid):
-    """check whether the device path belongs to an iscsi device. """
+_ISCSI_PREFIX = "iqn.2008-10.org.openstack:"
 
-    iscsi_id = "iqn.2008-10.org.openstack:%s" % node_uuid
-    return iscsi_id in dev
+
+# TODO(dtantsur): deprecate node_uuid here, it's not overly useful (any iSCSI
+# device should get the same treatment).
+def is_iscsi_device(dev, node_uuid=None):
+    """Check whether the device path belongs to an iSCSI device.
+
+    If node UUID is provided, checks that the device belongs to this UUID.
+    """
+    if node_uuid:
+        return (_ISCSI_PREFIX + node_uuid) in dev
+    else:
+        return _ISCSI_PREFIX in dev
 
 
 def is_last_char_digit(dev):
@@ -278,6 +289,27 @@ def is_last_char_digit(dev):
     if len(dev) >= 1:
         return dev[-1].isdigit()
     return False
+
+
+def partition_index_to_path(device, index):
+    """Guess a partition path based on its device and index.
+
+    :param device: Device path.
+    :param index: Partition index.
+    """
+    # the actual device names in the baremetal are like /dev/sda, /dev/sdb etc.
+    # While for the iSCSI device, the naming convention has a format which has
+    # iqn also embedded in it.
+    # When this function is called by ironic-conductor, the iSCSI device name
+    # should be appended by "part%d". While on the baremetal, it should name
+    # the device partitions as /dev/sda1 and not /dev/sda-part1.
+    if is_iscsi_device(device):
+        part_template = '%s-part%d'
+    elif is_last_char_digit(device):
+        part_template = '%sp%d'
+    else:
+        part_template = '%s%d'
+    return part_template % (device, index)
 
 
 def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
@@ -317,18 +349,6 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
     LOG.debug("Starting to partition the disk device: %(dev)s "
               "for node %(node)s",
               {'dev': dev, 'node': node_uuid})
-    # the actual device names in the baremetal are like /dev/sda, /dev/sdb etc.
-    # While for the iSCSI device, the naming convention has a format which has
-    # iqn also embedded in it.
-    # When this function is called by ironic-conductor, the iSCSI device name
-    # should be appended by "part%d". While on the baremetal, it should name
-    # the device partitions as /dev/sda1 and not /dev/sda-part1.
-    if is_iscsi_device(dev, node_uuid):
-        part_template = dev + '-part%d'
-    elif is_last_char_digit(dev):
-        part_template = dev + 'p%d'
-    else:
-        part_template = dev + '%d'
     part_dict = {}
 
     if disk_label is None:
@@ -342,13 +362,15 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
         part_num = dp.add_partition(CONF.disk_utils.efi_system_partition_size,
                                     fs_type='fat32',
                                     boot_flag='boot')
-        part_dict['efi system partition'] = part_template % part_num
+        part_dict['efi system partition'] = partition_index_to_path(
+            dev, part_num)
 
     if (boot_mode == "bios" and boot_option == "local" and disk_label == "gpt"
         and not cpu_arch.startswith('ppc64')):
         part_num = dp.add_partition(CONF.disk_utils.bios_boot_partition_size,
                                     boot_flag='bios_grub')
-        part_dict['BIOS Boot partition'] = part_template % part_num
+        part_dict['BIOS Boot partition'] = partition_index_to_path(
+            dev, part_num)
 
     # NOTE(mjturek): With ppc64* nodes, partition images are expected to have
     # a PrEP partition at the start of the disk. This is an 8 MiB partition
@@ -362,25 +384,26 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
         boot_flag = 'boot' if disk_label == 'msdos' else None
         part_num = dp.add_partition(8, part_type='primary',
                                     boot_flag=boot_flag, extra_flags=['prep'])
-        part_dict['PReP Boot partition'] = part_template % part_num
+        part_dict['PReP Boot partition'] = partition_index_to_path(
+            dev, part_num)
     if ephemeral_mb:
         LOG.debug("Add ephemeral partition (%(size)d MB) to device: %(dev)s "
                   "for node %(node)s",
                   {'dev': dev, 'size': ephemeral_mb, 'node': node_uuid})
         part_num = dp.add_partition(ephemeral_mb)
-        part_dict['ephemeral'] = part_template % part_num
+        part_dict['ephemeral'] = partition_index_to_path(dev, part_num)
     if swap_mb:
         LOG.debug("Add Swap partition (%(size)d MB) to device: %(dev)s "
                   "for node %(node)s",
                   {'dev': dev, 'size': swap_mb, 'node': node_uuid})
         part_num = dp.add_partition(swap_mb, fs_type='linux-swap')
-        part_dict['swap'] = part_template % part_num
+        part_dict['swap'] = partition_index_to_path(dev, part_num)
     if configdrive_mb:
         LOG.debug("Add config drive partition (%(size)d MB) to device: "
                   "%(dev)s for node %(node)s",
                   {'dev': dev, 'size': configdrive_mb, 'node': node_uuid})
         part_num = dp.add_partition(configdrive_mb)
-        part_dict['configdrive'] = part_template % part_num
+        part_dict['configdrive'] = partition_index_to_path(dev, part_num)
 
     # NOTE(lucasagomes): Make the root partition the last partition. This
     # enables tools like cloud-init's growroot utility to expand the root
@@ -396,7 +419,7 @@ def make_partitions(dev, root_mb, swap_mb, ephemeral_mb,
 
     part_num = dp.add_partition(root_mb, boot_flag=boot_val)
 
-    part_dict['root'] = part_template % part_num
+    part_dict['root'] = partition_index_to_path(dev, part_num)
 
     if commit:
         # write to the disk
@@ -1108,12 +1131,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                       'Unable to retrieve config drive partition information.')
                     % {'device': device})
 
-            if is_iscsi_device(device, node_uuid):
-                config_drive_part = '%s-part%s' % (device, new_part.pop())
-            elif is_last_char_digit(device):
-                config_drive_part = '%sp%s' % (device, new_part.pop())
-            else:
-                config_drive_part = '%s%s' % (device, new_part.pop())
+            config_drive_part = partition_index_to_path(device, new_part.pop())
 
             udev_settle()
 

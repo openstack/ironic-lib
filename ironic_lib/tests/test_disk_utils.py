@@ -46,9 +46,11 @@ BYT;
 """
         expected = [
             {'number': 1, 'start': 1, 'end': 501, 'size': 500,
-             'filesystem': 'ext4', 'partition_name': '', 'flags': 'boot'},
+             'filesystem': 'ext4', 'partition_name': '', 'flags': 'boot',
+             'path': '/dev/fake1'},
             {'number': 2, 'start': 501, 'end': 476940, 'size': 476439,
-             'filesystem': '', 'partition_name': '', 'flags': ''},
+             'filesystem': '', 'partition_name': '', 'flags': '',
+             'path': '/dev/fake2'},
         ]
         execute_mock.return_value = (output, '')
         result = disk_utils.list_partitions('/dev/fake')
@@ -68,11 +70,7 @@ BYT;
         self.assertEqual([], disk_utils.list_partitions('/dev/fake'))
         self.assertEqual(1, log_mock.call_count)
 
-
-@mock.patch.object(utils, 'execute', autospec=True)
-class ListPartitionsGPTTestCase(base.IronicLibTestCase):
-
-    def test_correct(self, execute_mock):
+    def test_correct_gpt_nvme(self, execute_mock):
         output = """
 BYT;
 /dev/vda:40960MiB:virtblk:512:512:gpt:Virtio Block Device:;
@@ -82,23 +80,25 @@ BYT;
 """
         expected = [
             {'end': 2, 'number': 2, 'start': 1, 'flags': 'bios_grub',
-             'filesystem': '', 'partition_name': 'Bios partition', 'size': 1},
+             'filesystem': '', 'partition_name': 'Bios partition', 'size': 1,
+             'path': '/dev/fake0p2'},
             {'end': 5407, 'number': 1, 'start': 4, 'flags': '',
              'filesystem': 'ext4', 'partition_name': 'Root partition',
-             'size': 5403},
+             'size': 5403, 'path': '/dev/fake0p1'},
             {'end': 5507, 'number': 3, 'start': 5407,
              'flags': 'boot, esp', 'filesystem': 'fat16',
-             'partition_name': 'Boot partition', 'size': 100},
+             'partition_name': 'Boot partition', 'size': 100,
+             'path': '/dev/fake0p3'},
         ]
         execute_mock.return_value = (output, '')
-        result = disk_utils.list_partitions('/dev/fake')
+        result = disk_utils.list_partitions('/dev/fake0')
         self.assertEqual(expected, result)
         execute_mock.assert_called_once_with(
-            'parted', '-s', '-m', '/dev/fake', 'unit', 'MiB', 'print',
+            'parted', '-s', '-m', '/dev/fake0', 'unit', 'MiB', 'print',
             use_standard_locale=True, run_as_root=True)
 
     @mock.patch.object(disk_utils.LOG, 'warning', autospec=True)
-    def test_incorrect(self, log_mock, execute_mock):
+    def test_incorrect_gpt(self, log_mock, execute_mock):
         output = """
 BYT;
 /dev/vda:40960MiB:virtblk:512:512:gpt:Virtio Block Device:;
