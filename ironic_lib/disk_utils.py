@@ -172,11 +172,8 @@ def get_disk_identifier(dev):
     """
     disk_identifier = utils.execute('hexdump', '-s', '440', '-n', '4',
                                     '-e', '''\"0x%08x\"''',
-                                    dev,
-                                    run_as_root=True,
-                                    check_exit_code=[0],
-                                    attempts=5,
-                                    delay_on_retry=True)
+                                    dev, run_as_root=True,
+                                    attempts=5, delay_on_retry=True)
     return disk_identifier[0]
 
 
@@ -538,7 +535,7 @@ def get_image_mb(image_path, virtual_size=True):
 def get_dev_block_size(dev):
     """Get the device size in 512 byte sectors."""
     block_sz, cmderr = utils.execute('blockdev', '--getsz', dev,
-                                     run_as_root=True, check_exit_code=[0])
+                                     run_as_root=True)
     return int(block_sz)
 
 
@@ -1142,8 +1139,7 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             LOG.debug('Waiting for the config drive partition %(part)s '
                       'on node %(node)s to be ready for writing.',
                       {'part': config_drive_part, 'node': node_uuid})
-            utils.execute('test', '-e', config_drive_part,
-                          check_exit_code=[0], attempts=15,
+            utils.execute('test', '-e', config_drive_part, attempts=15,
                           delay_on_retry=True)
 
         dd(confdrive_file, config_drive_part)

@@ -70,8 +70,8 @@ class DiskPartitioner(object):
         #                    exceptions. It also logs any failure so we don't
         #                    need to log it again here.
         utils.execute('parted', '-a', self._alignment, '-s', self._device,
-                      '--', 'unit', 'MiB', *args, check_exit_code=[0],
-                      use_standard_locale=True, run_as_root=True)
+                      '--', 'unit', 'MiB', *args, use_standard_locale=True,
+                      run_as_root=True)
 
     def add_partition(self, size, part_type='primary', fs_type='',
                       boot_flag=None, extra_flags=None):

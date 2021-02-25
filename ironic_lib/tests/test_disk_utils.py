@@ -571,7 +571,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
         parted_cmd = (self._get_parted_cmd(self.dev, disk_label)
                       + expected_mkpart)
         parted_call = mock.call(*parted_cmd, use_standard_locale=True,
-                                run_as_root=True, check_exit_code=[0])
+                                run_as_root=True)
         fuser_cmd = ['fuser', 'fake-dev']
         fuser_call = mock.call(*fuser_cmd, run_as_root=True,
                                check_exit_code=[0, 1])
@@ -623,7 +623,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                                    self.node_uuid)
 
         parted_call = mock.call(*cmd, use_standard_locale=True,
-                                run_as_root=True, check_exit_code=[0])
+                                run_as_root=True)
         mock_exc.assert_has_calls([parted_call])
 
     def test_make_partitions_with_iscsi_device(self, mock_exc):
@@ -647,7 +647,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
             self.configdrive_mb, self.node_uuid)
 
         parted_call = mock.call(*cmd, use_standard_locale=True,
-                                run_as_root=True, check_exit_code=[0])
+                                run_as_root=True)
         mock_exc.assert_has_calls([parted_call])
         self.assertEqual(expected_result, result)
 
@@ -670,7 +670,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
             self.configdrive_mb, self.node_uuid)
 
         parted_call = mock.call(*cmd, use_standard_locale=True,
-                                run_as_root=True, check_exit_code=[0])
+                                run_as_root=True)
         mock_exc.assert_has_calls([parted_call])
         self.assertEqual(expected_result, result)
 
@@ -690,7 +690,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
             self.configdrive_mb, self.node_uuid)
 
         parted_call = mock.call(*cmd, use_standard_locale=True,
-                                run_as_root=True, check_exit_code=[0])
+                                run_as_root=True)
         mock_exc.assert_has_calls([parted_call])
         self.assertEqual(expected_result, result)
 
@@ -719,7 +719,6 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                                     run_as_root=True,
                                     use_standard_locale=True),
                           mock.call('blockdev', '--getsz', 'fake-dev',
-                                    check_exit_code=[0],
                                     run_as_root=True),
                           mock.call('dd', 'bs=512', 'if=/dev/zero',
                                     'of=fake-dev', 'count=33',
@@ -755,7 +754,6 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                                     run_as_root=True,
                                     use_standard_locale=True),
                           mock.call('blockdev', '--getsz', 'fake-dev',
-                                    check_exit_code=[0],
                                     run_as_root=True),
                           mock.call('dd', 'bs=512', 'if=/dev/zero',
                                     'of=fake-dev', 'count=33',
@@ -804,7 +802,6 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                                     run_as_root=True,
                                     use_standard_locale=True),
                           mock.call('blockdev', '--getsz', 'fake-dev',
-                                    check_exit_code=[0],
                                     run_as_root=True),
                           mock.call('dd', 'bs=512', 'if=/dev/zero',
                                     'of=fake-dev', 'count=2',
@@ -828,7 +825,6 @@ class DestroyMetaDataTestCase(base.IronicLibTestCase):
                                     run_as_root=True,
                                     use_standard_locale=True),
                           mock.call('blockdev', '--getsz', 'fake-dev',
-                                    check_exit_code=[0],
                                     run_as_root=True),
                           mock.call('dd', 'bs=512', 'if=/dev/zero',
                                     'of=fake-dev', 'count=33',
@@ -863,7 +859,7 @@ class GetDeviceBlockSizeTestCase(base.IronicLibTestCase):
     def test_get_dev_block_size(self, mock_exec):
         mock_exec.return_value = ("64", "")
         expected_call = [mock.call('blockdev', '--getsz', self.dev,
-                                   run_as_root=True, check_exit_code=[0])]
+                                   run_as_root=True)]
         disk_utils.get_dev_block_size(self.dev)
         mock_exec.assert_has_calls(expected_call)
 
@@ -1540,7 +1536,7 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
 
             mock.call('udevadm', 'settle'),
             mock.call('test', '-e', expected_part, attempts=15,
-                      check_exit_code=[0], delay_on_retry=True)
+                      delay_on_retry=True)
         ])
 
         self.assertEqual(2, mock_list_partitions.call_count)
@@ -1644,7 +1640,7 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
             mock.call('sgdisk', '-v', self.dev, run_as_root=True),
             mock.call('udevadm', 'settle'),
             mock.call('test', '-e', expected_part, attempts=15,
-                      check_exit_code=[0], delay_on_retry=True)
+                      delay_on_retry=True)
         ])
         self.assertEqual(2, mock_list_partitions.call_count)
         mock_table_type.assert_called_with(self.dev)
