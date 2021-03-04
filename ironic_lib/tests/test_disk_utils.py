@@ -1973,9 +1973,10 @@ class TriggerDeviceRescanTestCase(base.IronicLibTestCase):
         ])
 
 
-BLKID_PROBE = """
-/dev/nvme0n1: PTUUID="123456" PTTYPE="gpt"
-"""
+BLKID_PROBE = ("""
+/dev/disk/by-path/ip-10.1.0.52:3260-iscsi-iqn.2008-10.org.openstack: """
+               """PTUUID="123456" PTTYPE="gpt"
+               """)
 
 BLKID_NORMAL = (
     'dev/nvme0n1p1: UUID="123" BLOCK_SIZE="512" TYPE="vfat" '

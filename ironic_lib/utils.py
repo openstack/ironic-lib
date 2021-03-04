@@ -649,5 +649,10 @@ def parse_device_tags(output):
     """
     for line in output.strip().split('\n'):
         if line.strip():
-            yield {key: value for key, value in (v.split('=', 1)
-                                                 for v in shlex.split(line))}
+            try:
+                yield {key: value for key, value in
+                       (v.split('=', 1) for v in shlex.split(line))}
+            except ValueError as err:
+                raise ValueError(
+                    _("Malformed blkid/lsblk output line '%(line)s': %(err)s")
+                    % {'line': line, 'err': err})

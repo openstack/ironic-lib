@@ -206,7 +206,7 @@ def get_device_information(device, probe=False, fields=None):
     output, err = utils.execute('blkid', device, *args,
                                 use_standard_locale=True, run_as_root=True)
     if output.strip():
-        output = output.split(':', 1)[1]
+        output = output.split(': ', 1)[1]
         return next(utils.parse_device_tags(output))
     else:
         return {}
