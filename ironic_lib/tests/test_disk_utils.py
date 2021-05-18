@@ -1100,6 +1100,17 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                                              use_standard_locale=True)
 
     @mock.patch.object(utils, 'execute', autospec=True)
+    def test_convert_image_flags(self, execute_mock):
+        disk_utils.convert_image('source', 'dest', 'out_format',
+                                 cache='directsync', out_of_order=True)
+        execute_mock.assert_called_once_with('qemu-img', 'convert', '-O',
+                                             'out_format', '-t', 'directsync',
+                                             '-W', 'source', 'dest',
+                                             run_as_root=False,
+                                             prlimit=mock.ANY,
+                                             use_standard_locale=True)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image_retries(self, execute_mock):
         ret_err = 'qemu: qemu_thread_create: Resource temporarily unavailable'
         execute_mock.side_effect = [

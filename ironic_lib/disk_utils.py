@@ -479,9 +479,15 @@ def _retry_on_res_temp_unavailable(exc):
     retry=tenacity.retry_if_exception(_retry_on_res_temp_unavailable),
     stop=tenacity.stop_after_attempt(CONF.disk_utils.image_convert_attempts),
     reraise=True)
-def convert_image(source, dest, out_format, run_as_root=False):
+def convert_image(source, dest, out_format, run_as_root=False, cache=None,
+                  out_of_order=False):
     """Convert image to other format."""
-    cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
+    cmd = ['qemu-img', 'convert', '-O', out_format]
+    if cache is not None:
+        cmd += ['-t', cache]
+    if out_of_order:
+        cmd.append('-W')
+    cmd += [source, dest]
     try:
         utils.execute(*cmd, run_as_root=run_as_root,
                       prlimit=_qemu_img_limits(),
