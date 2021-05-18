@@ -61,7 +61,7 @@ opts = [
                help='Maximum number of attempts to try to read the '
                     'partition.'),
     cfg.IntOpt('image_convert_memory_limit',
-               default=1024,
+               default=2048,
                help='Memory limit for "qemu-img convert" in MiB. Implemented '
                     'via the address space resource limit.'),
     cfg.IntOpt('image_convert_attempts',
