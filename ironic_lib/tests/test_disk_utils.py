@@ -1091,11 +1091,13 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image(self, execute_mock):
         disk_utils.convert_image('source', 'dest', 'out_format')
-        execute_mock.assert_called_once_with('qemu-img', 'convert', '-O',
-                                             'out_format', 'source', 'dest',
-                                             run_as_root=False,
-                                             prlimit=mock.ANY,
-                                             use_standard_locale=True)
+        execute_mock.assert_called_once_with(
+            'qemu-img', 'convert', '-O',
+            'out_format', 'source', 'dest',
+            run_as_root=False,
+            prlimit=mock.ANY,
+            use_standard_locale=True,
+            env_variables={'MALLOC_ARENA_MAX': '3'})
 
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image_retries(self, execute_mock):
@@ -1113,7 +1115,8 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                                  'out_format', 'source', 'dest',
                                  run_as_root=False,
                                  prlimit=mock.ANY,
-                                 use_standard_locale=True)
+                                 use_standard_locale=True,
+                                 env_variables={'MALLOC_ARENA_MAX': '3'})
         execute_mock.assert_has_calls([
             convert_call,
             mock.call('sync'),
@@ -1140,7 +1143,8 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                                  'out_format', 'source', 'dest',
                                  run_as_root=False,
                                  prlimit=mock.ANY,
-                                 use_standard_locale=True)
+                                 use_standard_locale=True,
+                                 env_variables={'MALLOC_ARENA_MAX': '3'})
         execute_mock.assert_has_calls([
             convert_call,
             mock.call('sync'),
@@ -1163,7 +1167,8 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                                  'out_format', 'source', 'dest',
                                  run_as_root=False,
                                  prlimit=mock.ANY,
-                                 use_standard_locale=True)
+                                 use_standard_locale=True,
+                                 env_variables={'MALLOC_ARENA_MAX': '3'})
         execute_mock.assert_has_calls([
             convert_call,
             mock.call('sync'),
