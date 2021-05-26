@@ -409,10 +409,23 @@ def _retry_on_res_temp_unavailable(exc):
 def convert_image(source, dest, out_format, run_as_root=False):
     """Convert image to other format."""
     cmd = ('qemu-img', 'convert', '-O', out_format, source, dest)
+    # NOTE(TheJulia): Staticly set the MALLOC_ARENA_MAX to prevent leaking
+    # and the creation of new malloc arenas which will consume the system
+    # memory. If limited to 1, qemu-img consumes ~250 MB of RAM, but when
+    # another thread tries to access a locked section of memory in use with
+    # another thread, then by default a new malloc arena is created,
+    # which essentially balloons the memory requirement of the machine.
+    # Default for qemu-img is 8 * nCPU * ~250MB (based on defaults +
+    # thread/code/process/library overhead. In other words, 64 GB. Limiting
+    # this to 3 keeps the memory utilization in happy cases below the overall
+    # threshold which is in place in case a malicious image is attempted to
+    # be passed through qemu-img.
+    env_vars = {'MALLOC_ARENA_MAX': '3'}
     try:
         utils.execute(*cmd, run_as_root=run_as_root,
                       prlimit=_qemu_img_limits(),
-                      use_standard_locale=True)
+                      use_standard_locale=True,
+                      env_variables=env_vars)
     except processutils.ProcessExecutionError as e:
         if ('Resource temporarily unavailable' in e.stderr
             or 'Cannot allocate memory' in e.stderr):
