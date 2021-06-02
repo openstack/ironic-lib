@@ -110,12 +110,12 @@ class ExecuteTestCase(base.IronicLibTestCase):
             else:
                 utils.execute('foo')
             execute_mock.assert_called_once_with('foo')
-            name, args, kwargs = log_mock.debug.mock_calls[1]
+            name, args, kwargs = log_mock.debug.mock_calls[0]
             if log_stdout is False:
-                self.assertEqual(2, log_mock.debug.call_count)
+                self.assertEqual(1, log_mock.debug.call_count)
                 self.assertNotIn('stdout', args[0])
             else:
-                self.assertEqual(3, log_mock.debug.call_count)
+                self.assertEqual(2, log_mock.debug.call_count)
                 self.assertIn('stdout', args[0])
 
     def test_execute_with_log_stdout_default(self):
@@ -126,6 +126,16 @@ class ExecuteTestCase(base.IronicLibTestCase):
 
     def test_execute_with_log_stdout_false(self):
         self._test_execute_with_log_stdout(log_stdout=False)
+
+    @mock.patch.object(utils, 'LOG', autospec=True)
+    @mock.patch.object(processutils, 'execute', autospec=True)
+    def test_execute_command_not_found(self, execute_mock, log_mock):
+        execute_mock.side_effect = FileNotFoundError
+        self.assertRaises(FileNotFoundError, utils.execute, 'foo')
+        execute_mock.assert_called_once_with('foo')
+        name, args, kwargs = log_mock.debug.mock_calls[0]
+        self.assertEqual(1, log_mock.debug.call_count)
+        self.assertIn('not found', args[0])
 
 
 class MkfsTestCase(base.IronicLibTestCase):
