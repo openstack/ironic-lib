@@ -94,13 +94,22 @@ def execute(*cmd, use_standard_locale=False, log_stdout=True, **kwargs):
         else:
             kwargs['root_helper'] = CONF.ironic_lib.root_helper
 
-    result = processutils.execute(*cmd, **kwargs)
-    LOG.debug('Execution completed, command line is "%s"',
-              ' '.join(map(str, cmd)))
-    if log_stdout:
-        LOG.debug('Command stdout is: "%s"', result[0])
-    LOG.debug('Command stderr is: "%s"', result[1])
-    return result
+    def _log(stdout, stderr):
+        if log_stdout:
+            LOG.debug('Command stdout is: "%s"', stdout)
+        LOG.debug('Command stderr is: "%s"', stderr)
+
+    try:
+        result = processutils.execute(*cmd, **kwargs)
+    except FileNotFoundError:
+        with excutils.save_and_reraise_exception():
+            LOG.debug('Command not found: "%s"', ' '.join(map(str, cmd)))
+    except processutils.ProcessExecutionError as exc:
+        with excutils.save_and_reraise_exception():
+            _log(exc.stdout, exc.stderr)
+    else:
+        _log(result[0], result[1])
+        return result
 
 
 def try_execute(*cmd, **kwargs):
