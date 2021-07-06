@@ -617,8 +617,9 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
         path_exists_mock.assert_called_once_with('img')
         execute_mock.assert_called_once_with('env', 'LC_ALL=C', 'LANG=C',
                                              'qemu-img', 'info', 'img',
+                                             '--output=json',
                                              prlimit=mock.ANY)
-        qemu_img_info_mock.assert_called_once_with('out')
+        qemu_img_info_mock.assert_called_once_with('out', format='json')
 
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image(self, execute_mock):

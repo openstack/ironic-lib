@@ -456,8 +456,9 @@ def qemu_img_info(path):
 
     out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
                              'qemu-img', 'info', path,
+                             '--output=json',
                              prlimit=_qemu_img_limits())
-    return imageutils.QemuImgInfo(out)
+    return imageutils.QemuImgInfo(out, format='json')
 
 
 def _retry_on_res_temp_unavailable(exc):
