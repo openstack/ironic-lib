@@ -64,7 +64,7 @@ register_opts(CONF)
 
 
 def list_opts():
-    return opts + keystone.add_auth_opts([])
+    return [('json_rpc', opts + keystone.add_auth_opts([]))]
 
 
 def auth_strategy():
