@@ -18,13 +18,13 @@ https://review.opendev.org/651222.
 
 import collections
 import ipaddress
+import logging
 import socket
 import time
 from urllib import parse as urlparse
 
 from oslo_config import cfg
 from oslo_config import types as cfg_types
-from oslo_log import log as logging
 import zeroconf
 
 from ironic_lib.common.i18n import _

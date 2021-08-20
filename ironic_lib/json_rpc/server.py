@@ -20,13 +20,13 @@ https://www.jsonrpc.org/specification. Main differences:
 """
 
 import json
+import logging
 
 try:
     from keystonemiddleware import auth_token
 except ImportError:
     auth_token = None
 from oslo_config import cfg
-from oslo_log import log
 try:
     import oslo_messaging
 except ImportError:
@@ -43,7 +43,7 @@ from ironic_lib import json_rpc
 
 
 CONF = cfg.CONF
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 _DENY_LIST = {'init_host', 'del_host', 'target', 'iter_nodes'}
 
 

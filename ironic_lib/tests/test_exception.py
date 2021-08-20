@@ -51,7 +51,8 @@ class TestIronicException(base.IronicLibTestCase):
         CONF.set_override('fatal_exception_format_errors', False,
                           group='ironic_lib')
         e = TestException(spam=Unserializable(), ham='eggs')
-        message = log_mock.call_args[0][0] % log_mock.call_args[0][1]
+        message = \
+            log_mock.call_args_list[0][0][0] % log_mock.call_args_list[0][0][1]
         self.assertIsNotNone(
             re.search('spam: .*JSON.* NotImplementedError: nostr', message),
             message
@@ -64,7 +65,8 @@ class TestIronicException(base.IronicLibTestCase):
                           group='ironic_lib')
         self.assertRaises(KeyError, TestException, spam=Unserializable(),
                           ham='eggs')
-        message = log_mock.call_args[0][0] % log_mock.call_args[0][1]
+        message = \
+            log_mock.call_args_list[0][0][0] % log_mock.call_args_list[0][0][1]
         self.assertIsNotNone(
             re.search('spam: .*JSON.* NotImplementedError: nostr', message),
             message

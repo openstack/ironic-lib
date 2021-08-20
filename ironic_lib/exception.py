@@ -25,9 +25,9 @@ SHOULD include dedicated exception logging.
 import collections
 from http import client as http_client
 import json
+import logging
 
 from oslo_config import cfg
-from oslo_log import log as logging
 from oslo_utils import excutils
 
 from ironic_lib.common.i18n import _

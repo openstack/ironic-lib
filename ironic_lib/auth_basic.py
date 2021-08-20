@@ -15,15 +15,15 @@
 
 import base64
 import binascii
+import logging
 
 import bcrypt
-from oslo_log import log
 import webob
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
 
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 class BasicAuthMiddleware(object):

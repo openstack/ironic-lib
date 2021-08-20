@@ -14,10 +14,10 @@
 #    under the License.
 
 import contextlib
+import logging
 import socket
 
 from oslo_config import cfg
-from oslo_log import log
 
 from ironic_lib import metrics
 
@@ -33,7 +33,7 @@ statsd_opts = [
 CONF = cfg.CONF
 CONF.register_opts(statsd_opts, group='metrics_statsd')
 
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 
 class StatsdMetricLogger(metrics.MetricLogger):

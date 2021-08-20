@@ -15,8 +15,9 @@
 This client is compatible with any JSON RPC 2.0 implementation, including ours.
 """
 
+import logging
+
 from oslo_config import cfg
-from oslo_log import log
 from oslo_utils import importutils
 from oslo_utils import netutils
 from oslo_utils import strutils
@@ -29,7 +30,7 @@ from ironic_lib import keystone
 
 
 CONF = cfg.CONF
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 _SESSION = None
 
 
