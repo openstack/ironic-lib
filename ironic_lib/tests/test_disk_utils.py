@@ -457,7 +457,8 @@ Device          Start        End    Sectors   Size Type
         self.assertEqual(part_result, result)
         execute_calls = [
             mock.call('fdisk', '-l', self.dev, run_as_root=True),
-            mock.call('lsblk', '-PbioUUID', partition_id,
+            mock.call('lsblk', partition_id, '--pairs', '--bytes', '--ascii',
+                      '--output', 'UUID', use_standard_locale=True,
                       run_as_root=True)
         ]
         mock_execute.assert_has_calls(execute_calls)
@@ -484,7 +485,9 @@ Device     Boot Start       End   Sectors Size Id Type
                           disk_utils.get_uefi_disk_identifier, self.dev)
         execute_calls = [
             mock.call('fdisk', '-l', self.dev, run_as_root=True),
-            mock.call('lsblk', '-PbioUUID', partition_id, run_as_root=True)
+            mock.call('lsblk', partition_id, '--pairs', '--bytes', '--ascii',
+                      '--output', 'UUID', use_standard_locale=True,
+                      run_as_root=True)
         ]
         mock_execute.assert_has_calls(execute_calls)
 
@@ -1984,8 +1987,8 @@ BLKID_PROBE = ("""
                """PTUUID="123456" PTTYPE="gpt"
                """)
 
-BLKID_NORMAL = (
-    'dev/nvme0n1p1: UUID="123" BLOCK_SIZE="512" TYPE="vfat" '
+LSBLK_NORMAL = (
+    'UUID="123" BLOCK_SIZE="512" TYPE="vfat" '
     'PARTLABEL="EFI System Partition" PARTUUID="123456"'
 )
 
@@ -1994,16 +1997,16 @@ BLKID_NORMAL = (
 class GetDeviceInformationTestCase(base.IronicLibTestCase):
 
     def test_normal(self, mock_execute):
-        mock_execute.return_value = BLKID_NORMAL, ""
+        mock_execute.return_value = LSBLK_NORMAL, ""
         result = disk_utils.get_device_information('/dev/fake')
         self.assertEqual(
             {'UUID': '123', 'BLOCK_SIZE': '512', 'TYPE': 'vfat',
              'PARTLABEL': 'EFI System Partition', 'PARTUUID': '123456'},
             result
         )
-        mock_execute.assert_called_once_with('blkid', '/dev/fake',
-                                             use_standard_locale=True,
-                                             run_as_root=True)
+        mock_execute.assert_called_once_with(
+            'lsblk', '/dev/fake', '--pairs', '--bytes', '--ascii', '--nodeps',
+            '--output-all', use_standard_locale=True, run_as_root=True)
 
     def test_probe(self, mock_execute):
         mock_execute.return_value = BLKID_PROBE, ""
@@ -2014,7 +2017,7 @@ class GetDeviceInformationTestCase(base.IronicLibTestCase):
                                              run_as_root=True)
 
     def test_fields(self, mock_execute):
-        mock_execute.return_value = BLKID_NORMAL, ""
+        mock_execute.return_value = LSBLK_NORMAL, ""
         result = disk_utils.get_device_information('/dev/fake',
                                                    fields=['UUID', 'LABEL'])
         # No filtering on our side, so returning all fake fields
@@ -2023,33 +2026,45 @@ class GetDeviceInformationTestCase(base.IronicLibTestCase):
              'PARTLABEL': 'EFI System Partition', 'PARTUUID': '123456'},
             result
         )
-        mock_execute.assert_called_once_with('blkid', '/dev/fake',
-                                             '--match-tag', 'UUID',
-                                             '--match-tag', 'LABEL',
-                                             use_standard_locale=True,
-                                             run_as_root=True)
+        mock_execute.assert_called_once_with(
+            'lsblk', '/dev/fake', '--pairs', '--bytes', '--ascii', '--nodeps',
+            '--output', 'UUID,LABEL',
+            use_standard_locale=True, run_as_root=True)
 
     def test_empty(self, mock_execute):
         mock_execute.return_value = "\n", ""
-        result = disk_utils.get_device_information('/dev/fake')
+        result = disk_utils.get_device_information('/dev/fake', probe=True)
         self.assertEqual({}, result)
         mock_execute.assert_called_once_with('blkid', '/dev/fake',
+                                             '--probe',
                                              use_standard_locale=True,
                                              run_as_root=True)
 
 
-@mock.patch.object(disk_utils, 'get_device_information', autospec=True)
+@mock.patch.object(utils, 'execute', autospec=True)
 class GetPartitionTableTypeTestCase(base.IronicLibTestCase):
-    def test_ok(self, mock_get_device_info):
-        mock_get_device_info.return_value = {'PTTYPE': 'gpt'}
-        self.assertEqual('gpt',
-                         disk_utils.get_partition_table_type('/dev/fake'))
-        mock_get_device_info.assert_called_once_with('/dev/fake', probe=True)
+    def test_gpt(self, mocked_execute):
+        self._test_by_type(mocked_execute, 'gpt', 'gpt')
 
-    def test_missing(self, mock_get_device_info):
-        mock_get_device_info.return_value = {}
-        self.assertIsNone(disk_utils.get_partition_table_type('/dev/fake'))
-        mock_get_device_info.assert_called_once_with('/dev/fake', probe=True)
+    def test_msdos(self, mocked_execute):
+        self._test_by_type(mocked_execute, 'msdos', 'msdos')
+
+    def test_unknown(self, mocked_execute):
+        self._test_by_type(mocked_execute, 'whatever', 'unknown')
+
+    def _test_by_type(self, mocked_execute, table_type_output,
+                      expected_table_type):
+        parted_ret = PARTED_OUTPUT_UNFORMATTED.format(table_type_output)
+
+        mocked_execute.side_effect = [
+            (parted_ret, None),
+        ]
+
+        ret = disk_utils.get_partition_table_type('hello')
+        mocked_execute.assert_called_once_with(
+            'parted', '--script', 'hello', '--', 'print',
+            run_as_root=True, use_standard_locale=True)
+        self.assertEqual(expected_table_type, ret)
 
 
 PARTED_OUTPUT_UNFORMATTED = '''Model: whatever
