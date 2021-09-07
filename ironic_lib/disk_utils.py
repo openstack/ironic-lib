@@ -69,6 +69,8 @@ LOG = logging.getLogger(__name__)
 
 _PARTED_PRINT_RE = re.compile(r"^(\d+):([\d\.]+)MiB:"
                               r"([\d\.]+)MiB:([\d\.]+)MiB:(\w*):(.*):(.*);")
+_PARTED_TABLE_TYPE_RE = re.compile(r'^.*partition\s+table\s*:\s*(gpt|msdos)',
+                                   re.IGNORECASE | re.MULTILINE)
 
 CONFIGDRIVE_LABEL = "config-2"
 MAX_CONFIG_DRIVE_SIZE_MB = 64
@@ -176,20 +178,17 @@ def get_partition_table_type(device):
     :param device: the name of the device
     :return: dos, gpt or None
     """
-    return get_device_information(device, probe=True).get('PTTYPE')
+    out = utils.execute('parted', '--script', device, '--', 'print',
+                        run_as_root=True, use_standard_locale=True)[0]
+    m = _PARTED_TABLE_TYPE_RE.search(out)
+    if m:
+        return m.group(1)
+
+    LOG.warning("Unable to get partition table type for device %s", device)
+    return 'unknown'
 
 
-def get_device_information(device, probe=False, fields=None):
-    """Get information about a device using blkid.
-
-    Can be applied to all block devices: disks, RAID, partitions.
-
-    :param device: Device name.
-    :param probe: Switch to low-level probing mode.
-    :param fields: A list of fields to request (all by default).
-    :return: A dictionary with requested fields as keys.
-    :raises: ProcessExecutionError
-    """
+def _blkid(device, probe=False, fields=None):
     args = []
     if probe:
         args.append('--probe')
@@ -199,7 +198,42 @@ def get_device_information(device, probe=False, fields=None):
     output, err = utils.execute('blkid', device, *args,
                                 use_standard_locale=True, run_as_root=True)
     if output.strip():
-        output = output.split(': ', 1)[1]
+        return output.split(': ', 1)[1]
+    else:
+        return ""
+
+
+def _lsblk(device, deps=True, fields=None):
+    args = ['--pairs', '--bytes', '--ascii']
+    if not deps:
+        args.append('--nodeps')
+    if fields:
+        args.extend(['--output', ','.join(fields)])
+    else:
+        args.append('--output-all')
+
+    output, err = utils.execute('lsblk', device, *args,
+                                use_standard_locale=True, run_as_root=True)
+    return output.strip()
+
+
+def get_device_information(device, probe=False, fields=None):
+    """Get information about a device using blkid.
+
+    Can be applied to all block devices: disks, RAID, partitions.
+
+    :param device: Device name.
+    :param probe: DEPRECATED, do not use.
+    :param fields: A list of fields to request (all by default).
+    :return: A dictionary with requested fields as keys.
+    :raises: ProcessExecutionError
+    """
+    if probe:
+        output = _blkid(device, probe=True, fields=fields)
+    else:
+        output = _lsblk(device, fields=fields, deps=False)
+
+    if output:
         return next(utils.parse_device_tags(output))
     else:
         return {}
@@ -248,8 +282,7 @@ def get_uefi_disk_identifier(dev):
             vals = line.split()
             partition_id = vals[0]
     try:
-        lsblk_output, _ = utils.execute('lsblk', '-PbioUUID', partition_id,
-                                        run_as_root=True)
+        lsblk_output = _lsblk(partition_id, fields=['UUID'])
         disk_identifier = lsblk_output.split("=")[1].strip()
         disk_identifier = disk_identifier.strip('"')
     except processutils.ProcessExecutionError as e:
