@@ -507,11 +507,13 @@ def _retry_on_res_temp_unavailable(exc):
     stop=tenacity.stop_after_attempt(CONF.disk_utils.image_convert_attempts),
     reraise=True)
 def convert_image(source, dest, out_format, run_as_root=False, cache=None,
-                  out_of_order=False):
+                  out_of_order=False, sparse_size=None):
     """Convert image to other format."""
     cmd = ['qemu-img', 'convert', '-O', out_format]
     if cache is not None:
         cmd += ['-t', cache]
+    if sparse_size is not None:
+        cmd += ['-S', sparse_size]
     if out_of_order:
         cmd.append('-W')
     cmd += [source, dest]
@@ -546,7 +548,7 @@ def populate_image(src, dst, conv_flags=None):
     if data.file_format == 'raw':
         dd(src, dst, conv_flags=conv_flags)
     else:
-        convert_image(src, dst, 'raw', True)
+        convert_image(src, dst, 'raw', True, sparse_size='0')
 
 
 def block_uuid(dev):
