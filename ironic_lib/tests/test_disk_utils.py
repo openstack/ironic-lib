@@ -568,7 +568,8 @@ class PopulateImageTestCase(base.IronicLibTestCase):
         type(mock_qinfo.return_value).file_format = mock.PropertyMock(
             return_value='qcow2')
         disk_utils.populate_image('src', 'dst')
-        mock_cg.assert_called_once_with('src', 'dst', 'raw', True)
+        mock_cg.assert_called_once_with('src', 'dst', 'raw', True,
+                                        sparse_size='0')
         self.assertFalse(mock_dd.called)
 
 
@@ -638,11 +639,12 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
     @mock.patch.object(utils, 'execute', autospec=True)
     def test_convert_image_flags(self, execute_mock):
         disk_utils.convert_image('source', 'dest', 'out_format',
-                                 cache='directsync', out_of_order=True)
+                                 cache='directsync', out_of_order=True,
+                                 sparse_size='0')
         execute_mock.assert_called_once_with(
             'qemu-img', 'convert', '-O',
             'out_format', '-t', 'directsync',
-            '-W', 'source', 'dest',
+            '-S', '0', '-W', 'source', 'dest',
             run_as_root=False,
             prlimit=mock.ANY,
             use_standard_locale=True,
