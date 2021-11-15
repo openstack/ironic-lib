@@ -191,9 +191,9 @@ def get_partition_table_type(device):
 def _blkid(device, probe=False, fields=None):
     args = []
     if probe:
-        args.append('--probe')
+        args.append('-p')
     if fields:
-        args += sum((['--match-tag', field] for field in fields), [])
+        args += sum((['-s', field] for field in fields), [])
 
     output, err = utils.execute('blkid', device, *args,
                                 use_standard_locale=True, run_as_root=True)

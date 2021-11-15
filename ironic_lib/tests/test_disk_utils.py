@@ -926,7 +926,7 @@ class GetDeviceInformationTestCase(base.IronicLibTestCase):
         mock_execute.return_value = BLKID_PROBE, ""
         result = disk_utils.get_device_information('/dev/fake', probe=True)
         self.assertEqual({'PTUUID': '123456', 'PTTYPE': 'gpt'}, result)
-        mock_execute.assert_called_once_with('blkid', '/dev/fake', '--probe',
+        mock_execute.assert_called_once_with('blkid', '/dev/fake', '-p',
                                              use_standard_locale=True,
                                              run_as_root=True)
 
@@ -950,8 +950,7 @@ class GetDeviceInformationTestCase(base.IronicLibTestCase):
         result = disk_utils.get_device_information('/dev/fake', probe=True)
         self.assertEqual({}, result)
         mock_execute.assert_called_once_with('blkid', '/dev/fake',
-                                             '--probe',
-                                             use_standard_locale=True,
+                                             '-p', use_standard_locale=True,
                                              run_as_root=True)
 
 
