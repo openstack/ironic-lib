@@ -1,0 +1,5 @@
+---
+fixes:
+  - |
+    Restore compatibility of blkid command with CentOS 7. For more details
+    see `Story 2009328 <https://storyboard.openstack.org/#!/story/2009328>`_.
