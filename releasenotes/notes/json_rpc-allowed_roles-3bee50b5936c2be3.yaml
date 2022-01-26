@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    The new ``[json_rpc] allowed_roles`` parameter has been added. This
+    parameter determines the list of roles allowed to use JSON RPC.

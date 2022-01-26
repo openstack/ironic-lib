@@ -146,9 +146,10 @@ class WSGIService(service.Service):
 
         if json_rpc.auth_strategy() == 'keystone':
             roles = (request.headers.get('X-Roles') or '').split(',')
-            if 'admin' not in roles:
-                LOG.debug('Roles %s do not contain "admin", rejecting '
-                          'request', roles)
+            allowed_roles = cfg.CONF.json_rpc.allowed_roles
+            if set(roles).isdisjoint(allowed_roles):
+                LOG.debug('Roles %s do not contain any of %s, rejecting '
+                          'request', roles, allowed_roles)
                 body = {'error': {'code': 403, 'message': _('Forbidden')}}
                 return webob.Response(status_code=403, json_body=body)(
                     environment, start_response)

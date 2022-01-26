@@ -293,10 +293,29 @@ class TestService(base.IronicLibTestCase):
         self._request('success', {'context': self.ctx, 'x': 42},
                       expected_error=401)
 
+    def test_authenticated_with_alloed_role(self):
+        self.config(auth_strategy='keystone', group='json_rpc')
+        self.config(allowed_roles=['allowed', 'ignored'], group='json_rpc')
+        self.service = server.WSGIService(FakeManager(), self.serializer,
+                                          FakeContext)
+        self.app = self.server_mock.call_args[0][2]
+        self._request('success', {'context': self.ctx, 'x': 42},
+                      expected_error=401,
+                      headers={'Content-Type': 'application/json',
+                               'X-Roles': 'allowed,denied'})
+
     def test_authenticated_no_admin_role(self):
         self.config(auth_strategy='keystone', group='json_rpc')
         self._request('success', {'context': self.ctx, 'x': 42},
                       expected_error=403)
+
+    def test_authenticated_no_allowed_role(self):
+        self.config(auth_strategy='keystone', group='json_rpc')
+        self.config(allowed_roles=['allowed', 'ignored'], group='json_rpc')
+        self._request('success', {'context': self.ctx, 'x': 42},
+                      expected_error=403,
+                      headers={'Content-Type': 'application/json',
+                               'X-Roles': 'denied,notallowed'})
 
     @mock.patch.object(server.LOG, 'debug', autospec=True)
     def test_mask_secrets(self, mock_log):

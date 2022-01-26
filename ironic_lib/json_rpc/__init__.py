@@ -51,6 +51,9 @@ opts = [
                secret=True,
                help=_("Password to use for HTTP Basic authentication "
                       "client requests.")),
+    cfg.ListOpt('allowed_roles',
+                default=['admin'],
+                help=_("List of roles allowed to use JSON RPC")),
 ]
 
 
