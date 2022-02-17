@@ -293,7 +293,7 @@ class TestService(base.IronicLibTestCase):
         self._request('success', {'context': self.ctx, 'x': 42},
                       expected_error=401)
 
-    def test_authenticated_with_alloed_role(self):
+    def test_authenticated_with_allowed_role(self):
         self.config(auth_strategy='keystone', group='json_rpc')
         self.config(allowed_roles=['allowed', 'ignored'], group='json_rpc')
         self.service = server.WSGIService(FakeManager(), self.serializer,

@@ -146,7 +146,7 @@ class WSGIService(service.Service):
 
         if json_rpc.auth_strategy() == 'keystone':
             roles = (request.headers.get('X-Roles') or '').split(',')
-            allowed_roles = cfg.CONF.json_rpc.allowed_roles
+            allowed_roles = CONF.json_rpc.allowed_roles
             if set(roles).isdisjoint(allowed_roles):
                 LOG.debug('Roles %s do not contain any of %s, rejecting '
                           'request', roles, allowed_roles)
