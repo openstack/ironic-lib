@@ -23,7 +23,7 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-wholedisk-bios-ipmi-src
+    name: ironic-lib-local-uefi-ipmi-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
@@ -37,7 +37,7 @@
         IRONIC_VM_EPHEMERAL_DISK: 0
 
 - job:
-    name: ironic-lib-partition-bios-ipmi-src
+    name: ironic-lib-netboot-bios-ipmi-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
@@ -47,4 +47,5 @@
         s-object: True
         s-proxy: True
       devstack_localrc:
+        IRONIC_BOOT_MODE: bios
         IRONIC_DEFAULT_BOOT_OPTION: netboot

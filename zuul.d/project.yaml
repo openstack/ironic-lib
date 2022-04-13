@@ -7,13 +7,13 @@
       - publish-openstack-docs-pti
     check:
       jobs:
-        - ironic-lib-wholedisk-bios-ipmi-src
-        - ironic-lib-partition-bios-ipmi-src
+        - ironic-lib-local-uefi-ipmi-src
+        - ironic-lib-netboot-bios-ipmi-src
     gate:
       queue: ironic
       jobs:
-        - ironic-lib-wholedisk-bios-ipmi-src
-        - ironic-lib-partition-bios-ipmi-src
+        - ironic-lib-local-uefi-ipmi-src
+        - ironic-lib-netboot-bios-ipmi-src
     post:
       jobs:
         - ironic-python-agent-build-image-tinyipa
