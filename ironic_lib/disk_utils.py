@@ -31,6 +31,7 @@ from oslo_config import cfg
 from oslo_utils import excutils
 from oslo_utils import imageutils
 from oslo_utils import units
+from oslo_utils import uuidutils
 import requests
 import tenacity
 
@@ -1119,13 +1120,18 @@ def create_config_drive_partition(node_uuid, device, configdrive):
                       "%(part)s",
                       {'node': node_uuid, 'part': config_drive_part})
         else:
-            cur_parts = set(part['number'] for part in list_partitions(device))
-
+            part_uuid = None
             if get_partition_table_type(device) == 'gpt':
+                part_uuid = uuidutils.generate_uuid()
                 create_option = '0:-%dMB:0' % MAX_CONFIG_DRIVE_SIZE_MB
-                utils.execute('sgdisk', '-n', create_option, device,
+                uuid_option = '0:%s' % part_uuid
+                utils.execute('sgdisk', '-n', create_option,
+                              '-u', uuid_option, device,
                               run_as_root=True)
             else:
+                cur_parts = set(part['number']
+                                for part in list_partitions(device))
+
                 # Check if the disk has 4 partitions. The MBR based disk
                 # cannot have more than 4 partitions.
                 # TODO(stendulker): One can use logical partitions to create
@@ -1166,15 +1172,31 @@ def create_config_drive_partition(node_uuid, device, configdrive):
             # Trigger device rescan
             trigger_device_rescan(device)
 
-            upd_parts = set(part['number'] for part in list_partitions(device))
-            new_part = set(upd_parts) - set(cur_parts)
-            if len(new_part) != 1:
-                raise exception.InstanceDeployFailure(
-                    _('Disk partitioning failed on device %(device)s. '
-                      'Unable to retrieve config drive partition information.')
-                    % {'device': device})
+            if part_uuid is None:
+                upd_parts = set(part['number']
+                                for part in list_partitions(device))
+                new_part = set(upd_parts) - set(cur_parts)
+                if len(new_part) != 1:
+                    raise exception.InstanceDeployFailure(
+                        _('Disk partitioning failed on device %(device)s. '
+                          'Unable to retrieve config drive partition '
+                          'information.') % {'device': device})
 
-            config_drive_part = partition_index_to_path(device, new_part.pop())
+                config_drive_part = partition_index_to_path(
+                    device, new_part.pop())
+            else:
+                try:
+                    findfs, stderr = utils.execute(
+                        'findfs', 'PARTUUID=%s' % part_uuid)
+                    config_drive_part = findfs.strip()
+                except processutils.ProcessExecutionError:
+                    msg = ('Failed to create config drive on disk %(disk)s '
+                           'for node %(node)s. Partition with UUID %(uuid)s '
+                           'has not been found after creation.') % {
+                               'disk': device, 'node': node_uuid,
+                               'uuid': part_uuid}
+                    LOG.error(msg)
+                    raise exception.InstanceDeployFailure(msg)
 
             udev_settle()
 

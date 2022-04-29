@@ -23,6 +23,7 @@ from unittest import mock
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_utils import imageutils
+from oslo_utils import uuidutils
 import requests
 
 from ironic_lib import disk_partitioner
@@ -1483,6 +1484,7 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
         mock_dd.assert_called_with(configdrive_file, configdrive_part)
         mock_unlink.assert_called_with(configdrive_file)
 
+    @mock.patch.object(uuidutils, 'generate_uuid', lambda: 'fake-uuid')
     @mock.patch.object(utils, 'execute', autospec=True)
     @mock.patch.object(utils, 'unlink_without_raise',
                        autospec=True)
@@ -1494,61 +1496,42 @@ class WholeDiskConfigDriveTestCases(base.IronicLibTestCase):
                        autospec=True)
     @mock.patch.object(disk_utils, 'get_partition_table_type',
                        autospec=True)
-    @mock.patch.object(disk_utils, 'list_partitions',
-                       autospec=True)
     @mock.patch.object(disk_utils, '_get_labelled_partition',
                        autospec=True)
     @mock.patch.object(disk_utils, '_get_configdrive',
                        autospec=True)
     def test_create_partition_gpt(self, mock_get_configdrive,
                                   mock_get_labelled_partition,
-                                  mock_list_partitions, mock_table_type,
+                                  mock_table_type,
                                   mock_fix_gpt, mock_fix_gpt_partition,
                                   mock_dd, mock_unlink, mock_execute):
         config_url = 'http://1.2.3.4/cd'
         configdrive_file = '/tmp/xyz'
         configdrive_mb = 10
 
-        initial_partitions = [{'end': 49152, 'number': 1, 'start': 1,
-                               'flags': 'boot', 'filesystem': 'ext4',
-                               'size': 49151},
-                              {'end': 51099, 'number': 3, 'start': 49153,
-                               'flags': '', 'filesystem': '', 'size': 2046},
-                              {'end': 51099, 'number': 5, 'start': 49153,
-                               'flags': '', 'filesystem': '', 'size': 2046}]
-        updated_partitions = [{'end': 49152, 'number': 1, 'start': 1,
-                               'flags': 'boot', 'filesystem': 'ext4',
-                               'size': 49151},
-                              {'end': 51099, 'number': 3, 'start': 49153,
-                               'flags': '', 'filesystem': '', 'size': 2046},
-                              {'end': 51099, 'number': 4, 'start': 49153,
-                               'flags': '', 'filesystem': '', 'size': 2046},
-                              {'end': 51099, 'number': 5, 'start': 49153,
-                               'flags': '', 'filesystem': '', 'size': 2046}]
-
         mock_get_configdrive.return_value = (configdrive_mb, configdrive_file)
         mock_get_labelled_partition.return_value = None
 
         mock_table_type.return_value = 'gpt'
-        mock_list_partitions.side_effect = [initial_partitions,
-                                            updated_partitions]
         expected_part = '/dev/fake4'
+        mock_execute.side_effect = [
+            ('', '')
+        ] * 5 + [(expected_part, '')] + [('', '')] * 2
         disk_utils.create_config_drive_partition(self.node_uuid, self.dev,
                                                  config_url)
         mock_execute.assert_has_calls([
-            mock.call('sgdisk', '-n', '0:-64MB:0', self.dev,
-                      run_as_root=True),
+            mock.call('sgdisk', '-n', '0:-64MB:0', '-u', '0:fake-uuid',
+                      self.dev, run_as_root=True),
             mock.call('sync'),
             mock.call('udevadm', 'settle'),
             mock.call('partprobe', self.dev, attempts=10, run_as_root=True),
             mock.call('sgdisk', '-v', self.dev, run_as_root=True),
-
+            mock.call('findfs', 'PARTUUID=fake-uuid'),
             mock.call('udevadm', 'settle'),
             mock.call('test', '-e', expected_part, attempts=15,
                       delay_on_retry=True)
         ])
 
-        self.assertEqual(2, mock_list_partitions.call_count)
         mock_table_type.assert_called_with(self.dev)
         mock_fix_gpt_partition.assert_called_with(self.dev, self.node_uuid)
         self.assertFalse(mock_fix_gpt.called)
