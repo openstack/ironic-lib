@@ -12,7 +12,6 @@
         - ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
         - ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
     gate:
-      queue: ironic
       jobs:
         - ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
         - ironic-lib-partition-bios-ipmi-direct-tinyipa-src
