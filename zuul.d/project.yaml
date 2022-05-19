@@ -10,7 +10,6 @@
         - ironic-lib-local-uefi-ipmi-src
         - ironic-lib-netboot-bios-ipmi-src
     gate:
-      queue: ironic
       jobs:
         - ironic-lib-local-uefi-ipmi-src
         - ironic-lib-netboot-bios-ipmi-src
