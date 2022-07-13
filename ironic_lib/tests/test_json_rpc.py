@@ -620,10 +620,10 @@ class TestClient(base.IronicLibTestCase):
                   'method': 'do_something',
                   'params': {'node': request, 'context': self.ctx_json}})
         self.assertEqual(2, mock_log.call_count)
-        node = mock_log.call_args_list[0][0][2]['params']['node']
+        node = mock_log.call_args_list[0][0][3]['params']['node']
         self.assertEqual(node, {'redfish_username': 'admin',
                                 'redfish_password': '***'})
-        resp_text = mock_log.call_args_list[1][0][2]
+        resp_text = mock_log.call_args_list[1][0][3]
         self.assertEqual(body.replace('passw0rd', '***'), resp_text)
 
 

@@ -185,15 +185,20 @@ class _CallContext(object):
             body['id'] = (getattr(context, 'request_id', None)
                           or uuidutils.generate_uuid())
 
-        LOG.debug("RPC %s with %s", method, strutils.mask_dict_password(body))
         scheme = 'http'
         if CONF.json_rpc.use_ssl:
             scheme = 'https'
         url = '%s://%s:%d' % (scheme,
                               netutils.escape_ipv6(self.host),
                               CONF.json_rpc.port)
-        result = _get_session().post(url, json=body)
-        LOG.debug('RPC %s returned %s', method,
+        LOG.debug("RPC %s to %s with %s", method, url,
+                  strutils.mask_dict_password(body))
+        try:
+            result = _get_session().post(url, json=body)
+        except Exception as exc:
+            LOG.debug('RPC %s to %s failed with %s', method, url, exc)
+            raise
+        LOG.debug('RPC %s to %s returned %s', method, url,
                   strutils.mask_password(result.text or '<None>'))
 
         if not cast:
