@@ -27,7 +27,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-copyright = u'OpenStack Foundation'
+copyright = 'OpenStack Foundation'
 
 # A list of ignored prefixes for module index sorting.
 modindex_common_prefix = ['ironic_lib']
@@ -76,8 +76,8 @@ latex_documents = [
     (
         'index',
         'doc-ironic-lib.tex',
-        u'Ironic Lib Documentation',
-        u'OpenStack Foundation',
+        'Ironic Lib Documentation',
+        'OpenStack Foundation',
         'manual'
     ),
 ]
