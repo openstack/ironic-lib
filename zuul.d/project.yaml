@@ -10,7 +10,6 @@
         - ironic-lib-wholedisk-bios-ipmi-src
         - ironic-lib-partition-bios-ipmi-src
     gate:
-      queue: ironic
       jobs:
         - ironic-lib-wholedisk-bios-ipmi-src
         - ironic-lib-partition-bios-ipmi-src
