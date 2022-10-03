@@ -11,7 +11,6 @@
         - ironic-lib-partition-bios-ipmi-iscsi-src
         - ironic-lib-wholedisk-bios-ipmi-iscsi-src
     gate:
-      queue: ironic
       jobs:
         - ironic-lib-wholedisk-bios-ipmi-direct-src
         - ironic-lib-partition-bios-ipmi-direct-src
