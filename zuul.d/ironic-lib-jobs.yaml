@@ -48,3 +48,4 @@
         s-proxy: True
       devstack_localrc:
         IRONIC_DEFAULT_BOOT_OPTION: netboot
+        IRONIC_BOOT_MODE: bios
