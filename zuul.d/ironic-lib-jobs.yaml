@@ -21,24 +21,7 @@
         IRONIC_BUILD_DEPLOY_RAMDISK: True
 
 - job:
-    name: ironic-lib-wholedisk-bios-ipmi-direct-tinyipa-src
-    parent: ironic-lib-base
-    timeout: 7200
-    vars:
-      devstack_services:
-        s-account: True
-        s-container: True
-        s-object: True
-        s-proxy: True
-      devstack_localrc:
-        IRONIC_DEFAULT_DEPLOY_INTERFACE: direct
-        IRONIC_TEMPEST_WHOLE_DISK_IMAGE: True
-        IRONIC_VM_EPHEMERAL_DISK: 0
-        SWIFT_ENABLE_TEMPURLS: True
-        SWIFT_TEMPURL_KEY: secretkey
-
-- job:
-    name: ironic-lib-partition-bios-ipmi-direct-tinyipa-src
+    name: ironic-lib-bios-ipmi-direct-tinyipa-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
@@ -54,18 +37,10 @@
         SWIFT_TEMPURL_KEY: secretkey
 
 - job:
-    name: ironic-lib-partition-bios-ipmi-iscsi-tinyipa-src
+    name: ironic-lib-bios-ipmi-iscsi-tinyipa-src
     parent: ironic-lib-base
     timeout: 7200
     vars:
       devstack_localrc:
         IRONIC_DEFAULT_BOOT_OPTION: netboot
 
-- job:
-    name: ironic-lib-wholedisk-bios-ipmi-iscsi-tinyipa-src
-    parent: ironic-lib-base
-    timeout: 7200
-    vars:
-      devstack_localrc:
-        IRONIC_TEMPEST_WHOLE_DISK_IMAGE: True
-        IRONIC_VM_EPHEMERAL_DISK: 0
