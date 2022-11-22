@@ -1,0 +1,9 @@
+---
+features:
+  - |
+    Adds a new metrics collection backend, ``collector``, to collect
+    counter, gauge, and timer information, enabling the applicationg to
+    access these statistics during process runtime. Adds a new metrics method
+    ``get_metrics_data`` to allow the dictionary structure containing
+    the metrics data to be accessed. This feature may be enabled by setting
+    the ``[metrics]\backend`` option to ``collector``.

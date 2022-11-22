@@ -18,12 +18,18 @@ from oslo_config import cfg
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
 from ironic_lib import metrics
+from ironic_lib import metrics_collector
 from ironic_lib import metrics_statsd
 
 metrics_opts = [
     cfg.StrOpt('backend',
                default='noop',
-               choices=['noop', 'statsd'],
+               choices=[
+                   ('noop', 'Do nothing in relation to metrics.'),
+                   ('statsd', 'Transmits metrics data to a statsd backend.'),
+                   ('collector', 'Collects metrics data and saves it in '
+                                 'memory for use by the running application.'),
+               ],
                help='Backend to use for the metrics system.'),
     cfg.BoolOpt('prepend_host',
                 default=False,
@@ -87,6 +93,9 @@ def get_metrics_logger(prefix='', backend=None, host=None, delimiter='.'):
         return metrics_statsd.StatsdMetricLogger(prefix, delimiter=delimiter)
     elif backend == 'noop':
         return metrics.NoopMetricLogger(prefix, delimiter=delimiter)
+    elif backend == 'collector':
+        return metrics_collector.DictCollectionMetricLogger(
+            prefix, delimiter=delimiter)
     else:
         msg = (_("The backend is set to an unsupported type: "
                  "%s. Value should be 'noop' or 'statsd'.")

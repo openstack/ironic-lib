@@ -19,6 +19,7 @@ import random
 import time
 
 from ironic_lib.common.i18n import _
+from ironic_lib import exception
 
 
 class Timer(object):
@@ -288,6 +289,10 @@ class MetricLogger(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _timer(self, name, value):
         """Abstract method for backends to implement timer behavior."""
+
+    def get_metrics_data(self):
+        """Return the metrics collection, if available."""
+        raise exception.MetricsNotSupported()
 
 
 class NoopMetricLogger(MetricLogger):

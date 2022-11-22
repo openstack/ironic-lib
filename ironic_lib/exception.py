@@ -194,3 +194,7 @@ class KeystoneUnauthorized(IronicException):
 
 class KeystoneFailure(IronicException):
     pass
+
+
+class MetricsNotSupported(IronicException):
+    _msg_fmt = _("Metrics action is not supported.")
