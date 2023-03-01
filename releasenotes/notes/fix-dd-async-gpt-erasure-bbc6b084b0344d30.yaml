@@ -1,0 +1,6 @@
+---
+fixes:
+  - |
+    Fixes a bug when erasing a partition table: the corresponding I/O needs
+    to be synchronous in order to avoid masking failed write requests to
+    broken devices.

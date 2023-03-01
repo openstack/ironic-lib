@@ -627,7 +627,7 @@ def destroy_disk_metadata(dev, node_uuid):
     if dev_size < GPT_SIZE_SECTORS:
         dd_count = 'count=%s' % dev_size
     utils.execute('dd', 'bs=512', 'if=/dev/zero', dd_device, dd_count,
-                  run_as_root=True, use_standard_locale=True)
+                  'oflag=direct', run_as_root=True, use_standard_locale=True)
 
     # Overwrite the Secondary GPT, do this only if there could be one
     if dev_size > GPT_SIZE_SECTORS:
@@ -635,7 +635,8 @@ def destroy_disk_metadata(dev, node_uuid):
         dd_seek = 'seek=%i' % gpt_backup
         dd_count = 'count=%s' % GPT_SIZE_SECTORS
         utils.execute('dd', 'bs=512', 'if=/dev/zero', dd_device, dd_count,
-                      dd_seek, run_as_root=True, use_standard_locale=True)
+                      'oflag=direct', dd_seek, run_as_root=True,
+                      use_standard_locale=True)
 
     # Go ahead and let sgdisk run as well.
     utils.execute('sgdisk', '-Z', dev, run_as_root=True,
