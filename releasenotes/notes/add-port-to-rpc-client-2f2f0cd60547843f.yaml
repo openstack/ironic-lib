@@ -1,0 +1,6 @@
+---
+features:
+  - |
+    Adds the capability for the ``json_rpc`` client to identify and utilize
+    a specific port from the supplied ``topic`` field as opposed to the
+    default configured port.

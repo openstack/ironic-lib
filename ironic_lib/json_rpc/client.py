@@ -82,18 +82,34 @@ class Client(object):
         return _can_send_version(version, self.version_cap)
 
     def prepare(self, topic, version=None):
+        """Prepare the client to transmit a request.
+
+        :param topic: Topic which is being addressed. Typically this
+                      is the hostname of the remote json-rpc service.
+        :param version: The RPC API version to utilize.
+        """
+
         host = topic.split('.', 1)[1]
+        # NOTE(TheJulia): Originally, I was worried about ip addresses being
+        # used, but looking at the topic split, it would have never really
+        # worked.
+        host, port = netutils.parse_host_port(host)
         return _CallContext(
             host, self.serializer, version=version,
             version_cap=self.version_cap,
-            allowed_exception_namespaces=self.allowed_exception_namespaces)
+            allowed_exception_namespaces=self.allowed_exception_namespaces,
+            port=port)
 
 
 class _CallContext(object):
     """Wrapper object for compatibility with oslo.messaging API."""
 
     def __init__(self, host, serializer, version=None, version_cap=None,
-                 allowed_exception_namespaces=()):
+                 allowed_exception_namespaces=(), port=None):
+        if not port:
+            self.port = CONF.json_rpc.port
+        else:
+            self.port = int(port)
         self.host = host
         self.serializer = serializer
         self.version = version
@@ -190,7 +206,7 @@ class _CallContext(object):
             scheme = 'https'
         url = '%s://%s:%d' % (scheme,
                               netutils.escape_ipv6(self.host),
-                              CONF.json_rpc.port)
+                              self.port)
         LOG.debug("RPC %s to %s with %s", method, url,
                   strutils.mask_dict_password(body))
         try:
@@ -200,7 +216,6 @@ class _CallContext(object):
             raise
         LOG.debug('RPC %s to %s returned %s', method, url,
                   strutils.mask_password(result.text or '<None>'))
-
         if not cast:
             result = result.json()
             self._handle_error(result.get('error'))
