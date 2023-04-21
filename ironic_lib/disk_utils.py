@@ -149,7 +149,7 @@ def count_mbr_partitions(device):
     output = output.replace('<', '').replace('>', '')
     partitions = [int(s) for s in output.split() if s.isdigit()]
 
-    return(sum(i < 5 for i in partitions), sum(i > 4 for i in partitions))
+    return (sum(i < 5 for i in partitions), sum(i > 4 for i in partitions))
 
 
 def get_disk_identifier(dev):
