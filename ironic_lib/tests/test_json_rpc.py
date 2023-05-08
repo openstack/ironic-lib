@@ -395,10 +395,28 @@ class TestClient(base.IronicLibTestCase):
         }
         cctx = self.client.prepare('foo.2001:db8::1')
         self.assertEqual('2001:db8::1', cctx.host)
+        self.assertEqual(8089, cctx.port)
         result = cctx.call(self.context, 'do_something', answer=42)
         self.assertEqual(42, result)
         mock_session.return_value.post.assert_called_once_with(
             'http://[2001:db8::1]:8089',
+            json={'jsonrpc': '2.0',
+                  'method': 'do_something',
+                  'params': {'answer': 42, 'context': self.ctx_json},
+                  'id': self.context.request_id})
+
+    def test_call_ipv6_success_rfc2732(self, mock_session):
+        response = mock_session.return_value.post.return_value
+        response.json.return_value = {
+            'jsonrpc': '2.0',
+            'result': 42
+        }
+        cctx = self.client.prepare('foo.[2001:db8::1]:8192')
+        self.assertEqual('2001:db8::1', cctx.host)
+        result = cctx.call(self.context, 'do_something', answer=42)
+        self.assertEqual(42, result)
+        mock_session.return_value.post.assert_called_once_with(
+            'http://[2001:db8::1]:8192',
             json={'jsonrpc': '2.0',
                   'method': 'do_something',
                   'params': {'answer': 42, 'context': self.ctx_json},
@@ -410,12 +428,12 @@ class TestClient(base.IronicLibTestCase):
             'jsonrpc': '2.0',
             'result': 42
         }
-        cctx = self.client.prepare('foo.example.com', version='1.42')
+        cctx = self.client.prepare('foo.example.com:8192', version='1.42')
         self.assertEqual('example.com', cctx.host)
         result = cctx.call(self.context, 'do_something', answer=42)
         self.assertEqual(42, result)
         mock_session.return_value.post.assert_called_once_with(
-            'http://example.com:8089',
+            'http://example.com:8192',
             json={'jsonrpc': '2.0',
                   'method': 'do_something',
                   'params': {'answer': 42, 'context': self.ctx_json,
