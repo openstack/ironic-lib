@@ -1,0 +1,12 @@
+---
+other:
+  - |
+    The default size of EFI system partitions to be created, when writing a
+    partition image, has been increased to 550 Megabytes from 200 Megabytes.
+    If this change is undesirable, please utilize the
+    ``efi_system_partition_size`` configuration option. This value is now
+    also consistent with the internal default when creating ESP volumes
+    for Software RAID with ``ironic-python-agent``, and the default carried
+    by ``diskimage-builder``. The prime driver for an increased partition
+    size is to enable OS driven firmware updates and appropriate space to
+    house Unikernels which requires additional space.

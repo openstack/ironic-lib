@@ -35,9 +35,12 @@ from ironic_lib import utils
 
 opts = [
     cfg.IntOpt('efi_system_partition_size',
-               default=200,
+               default=550,
                help='Size of EFI system partition in MiB when configuring '
-                    'UEFI systems for local boot.'),
+                    'UEFI systems for local boot. A common minimum is ~200 '
+                    'megabytes, however OS driven firmware updates and '
+                    'unikernel usage generally requires more space on the '
+                    'efi partition.'),
     cfg.IntOpt('bios_boot_partition_size',
                default=1,
                help='Size of BIOS Boot partition in MiB when configuring '
