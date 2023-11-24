@@ -31,8 +31,6 @@ try:
     import oslo_messaging
 except ImportError:
     oslo_messaging = None
-from oslo_service import service
-from oslo_service import wsgi
 from oslo_utils import strutils
 import webob
 
@@ -40,6 +38,7 @@ from ironic_lib import auth_basic
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
 from ironic_lib import json_rpc
+from ironic_lib import wsgi
 
 
 CONF = cfg.CONF
@@ -100,7 +99,7 @@ class EmptyContext:
         return self.__dict__.copy()
 
 
-class WSGIService(service.Service):
+class WSGIService(wsgi.WSGIService):
     """Provides ability to launch JSON RPC as a WSGI application."""
 
     def __init__(self, manager, serializer, context_class=EmptyContext):
@@ -130,10 +129,7 @@ class WSGIService(service.Service):
                 cfg.CONF.json_rpc.http_basic_auth_user_file)
         else:
             app = self._application
-        self.server = wsgi.Server(CONF, 'ironic-json-rpc', app,
-                                  host=CONF.json_rpc.host_ip,
-                                  port=CONF.json_rpc.port,
-                                  use_ssl=CONF.json_rpc.use_ssl)
+        super().__init__('ironic-json-rpc', app, CONF.json_rpc)
 
     def _application(self, environment, start_response):
         """WSGI application for conductor JSON RPC."""
@@ -294,31 +290,3 @@ class WSGIService(service.Service):
                   strutils.mask_dict_password(result)
                   if isinstance(result, dict) else result)
         return result
-
-    def start(self):
-        """Start serving this service using loaded configuration.
-
-        :returns: None
-        """
-        self.server.start()
-
-    def stop(self):
-        """Stop serving this API.
-
-        :returns: None
-        """
-        self.server.stop()
-
-    def wait(self):
-        """Wait for the service to stop serving this API.
-
-        :returns: None
-        """
-        self.server.wait()
-
-    def reset(self):
-        """Reset server greenpool size to default.
-
-        :returns: None
-        """
-        self.server.reset()

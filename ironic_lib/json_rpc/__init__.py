@@ -12,6 +12,7 @@
 
 from oslo_config import cfg
 
+from ironic_lib.common import config
 from ironic_lib.common.i18n import _
 from ironic_lib import keystone
 
@@ -54,6 +55,11 @@ opts = [
     cfg.ListOpt('allowed_roles',
                 default=['admin'],
                 help=_("List of roles allowed to use JSON RPC")),
+    cfg.StrOpt('unix_socket',
+               help=_('Unix socket to listen on. Disables host_ip and port.')),
+    cfg.Opt('unix_socket_mode', type=config.Octal(),
+            help=_('File mode (an octal number) of the unix socket to '
+                   'listen on. Ignored if unix_socket is not set.')),
 ]
 
 
