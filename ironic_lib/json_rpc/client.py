@@ -90,9 +90,6 @@ class Client(object):
         """
 
         host = topic.split('.', 1)[1]
-        # NOTE(TheJulia): Originally, I was worried about ip addresses being
-        # used, but looking at the topic split, it would have never really
-        # worked.
         host, port = netutils.parse_host_port(host)
         return _CallContext(
             host, self.serializer, version=version,
