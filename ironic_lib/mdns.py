@@ -103,12 +103,18 @@ class Zeroconf(object):
             all_params.update(params)
         all_params.update(parsed.params)
 
+        properties = {
+            (key.encode('utf-8') if isinstance(key, str) else key):
+            (value.encode('utf-8') if isinstance(value, str) else value)
+            for key, value in all_params.items()
+        }
+
         # TODO(dtantsur): allow overriding TTL values via configuration
         info = zeroconf.ServiceInfo(_MDNS_DOMAIN,
                                     '%s.%s' % (service_type, _MDNS_DOMAIN),
                                     addresses=parsed.addresses,
                                     port=parsed.port,
-                                    properties=all_params,
+                                    properties=properties,
                                     server=parsed.hostname)
 
         LOG.debug('Registering %s via mDNS', info)
