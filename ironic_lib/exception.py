@@ -197,4 +197,5 @@ class KeystoneFailure(IronicException):
 
 
 class MetricsNotSupported(IronicException):
-    _msg_fmt = _("Metrics action is not supported.")
+    _msg_fmt = _("Metrics action is not supported. You may need to "
+                 "adjust the [metrics] section in ironic.conf.")
