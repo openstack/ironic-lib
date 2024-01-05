@@ -37,22 +37,22 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal'}, info.properties)
+        self.assertEqual({b'path': b'/baremetal'}, info.properties)
 
     def test_with_params(self, mock_zc):
         CONF.set_override('params', {'answer': 'none', 'foo': 'bar'},
                           group='mdns')
         zc = mdns.Zeroconf()
         zc.register_service('baremetal', 'https://127.0.0.1/baremetal',
-                            params={'answer': 42})
+                            params={'answer': b'42'})
         mock_zc.return_value.register_service.assert_called_once_with(mock.ANY)
         info = mock_zc.return_value.register_service.call_args[0][0]
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal',
-                          'answer': 42,
-                          'foo': 'bar'},
+        self.assertEqual({b'path': b'/baremetal',
+                          b'answer': b'42',
+                          b'foo': b'bar'},
                          info.properties)
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
@@ -81,7 +81,7 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal'}, info.properties)
+        self.assertEqual({b'path': b'/baremetal'}, info.properties)
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
     def test_failure(self, mock_sleep, mock_zc):
