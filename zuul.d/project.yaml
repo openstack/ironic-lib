@@ -8,6 +8,8 @@
       jobs:
         - ironic-lib-uefi-ipmi-src
         - ironic-lib-bios-ipmi-src
+        - ironic-lib-tox-codespell:
+            voting: false
     gate:
       jobs:
         - ironic-lib-uefi-ipmi-src

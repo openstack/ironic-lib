@@ -48,3 +48,10 @@
         s-proxy: True
       devstack_localrc:
         IRONIC_BOOT_MODE: bios
+
+- job:
+    name: ironic-lib-tox-codespell
+    parent: openstack-tox
+    timeout: 7200
+    vars:
+      tox_envlist: codespell
