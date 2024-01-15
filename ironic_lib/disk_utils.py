@@ -488,7 +488,7 @@ def dd(src, dst, conv_flags=None):
 def qemu_img_info(path):
     """Return an object containing the parsed output from qemu-img info."""
     if not os.path.exists(path):
-        return imageutils.QemuImgInfo()
+        raise FileNotFoundError(_("File %s does not exist") % path)
 
     out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
                              'qemu-img', 'info', path,

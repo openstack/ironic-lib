@@ -603,13 +603,10 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                           disk_utils.is_block_device, device)
         mock_os.assert_has_calls([mock.call(device)] * 2)
 
-    @mock.patch.object(imageutils, 'QemuImgInfo', autospec=True)
     @mock.patch.object(os.path, 'exists', return_value=False, autospec=True)
-    def test_qemu_img_info_path_doesnt_exist(self, path_exists_mock,
-                                             qemu_img_info_mock):
-        disk_utils.qemu_img_info('noimg')
+    def test_qemu_img_info_path_doesnt_exist(self, path_exists_mock):
+        self.assertRaises(FileNotFoundError, disk_utils.qemu_img_info, 'noimg')
         path_exists_mock.assert_called_once_with('noimg')
-        qemu_img_info_mock.assert_called_once_with()
 
     @mock.patch.object(utils, 'execute', return_value=('out', 'err'),
                        autospec=True)
