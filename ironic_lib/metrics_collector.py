@@ -106,7 +106,7 @@ class DictCollectionMetricLogger(metrics.MetricLogger):
     def get_metrics_data(self):
         """Return the metrics collection dictionary.
 
-        :returns: Dictonary containing the keys and values of
+        :returns: Dictionary containing the keys and values of
                   data stored via the metrics collection hooks.
                   The values themselves are dictionaries which
                   contain a type field, indicating if the statistic

@@ -520,7 +520,7 @@ def convert_image(source, dest, out_format, run_as_root=False, cache=None,
     if out_of_order:
         cmd.append('-W')
     cmd += [source, dest]
-    # NOTE(TheJulia): Staticly set the MALLOC_ARENA_MAX to prevent leaking
+    # NOTE(TheJulia): Statically set the MALLOC_ARENA_MAX to prevent leaking
     # and the creation of new malloc arenas which will consume the system
     # memory. If limited to 1, qemu-img consumes ~250 MB of RAM, but when
     # another thread tries to access a locked section of memory in use with
@@ -729,7 +729,7 @@ def udev_settle():
 def partprobe(device, attempts=None):
     """Probe partitions on the given device.
 
-    :param device: The block device containing paritions that is attempting
+    :param device: The block device containing partitions that is attempting
                    to be updated.
     :param attempts: Number of attempts to run partprobe, the default is read
                      from the configuration.
@@ -766,7 +766,7 @@ def trigger_device_rescan(device, attempts=None):
     When ramdisks are not in use, this also helps ensure that data has
     been safely flushed across the wire, such as on iscsi connections.
 
-    :param device: The block device containing paritions that is attempting
+    :param device: The block device containing partitions that is attempting
                    to be updated.
     :param attempts: Number of attempts to run partprobe, the default is read
                      from the configuration.
