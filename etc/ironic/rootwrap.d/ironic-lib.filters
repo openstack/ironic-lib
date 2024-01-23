@@ -12,7 +12,6 @@ blkid: CommandFilter, blkid, root
 blockdev: CommandFilter, blockdev, root
 hexdump: CommandFilter, hexdump, root
 lsblk: CommandFilter, lsblk, root
-qemu-img: CommandFilter, qemu-img, root
 wipefs: CommandFilter, wipefs, root
 sgdisk: CommandFilter, sgdisk, root
 partprobe: CommandFilter, partprobe, root
@@ -26,3 +25,6 @@ mount: CommandFilter, mount, root
 # ironic_lib/disk_partitioner.py
 fuser: CommandFilter, fuser, root
 parted: CommandFilter, parted, root
+
+# ironic_lib/qemu_img.py
+qemu-img: CommandFilter, qemu-img, root

@@ -19,10 +19,10 @@ from unittest import mock
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
-from oslo_utils import imageutils
 
 from ironic_lib import disk_utils
 from ironic_lib import exception
+from ironic_lib import qemu_img
 from ironic_lib.tests import base
 from ironic_lib import utils
 
@@ -545,8 +545,8 @@ class GetDeviceBlockSizeTestCase(base.IronicLibTestCase):
 
 
 @mock.patch.object(disk_utils, 'dd', autospec=True)
-@mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
-@mock.patch.object(disk_utils, 'convert_image', autospec=True)
+@mock.patch.object(qemu_img, 'image_info', autospec=True)
+@mock.patch.object(qemu_img, 'convert_image', autospec=True)
 class PopulateImageTestCase(base.IronicLibTestCase):
 
     def test_populate_raw_image(self, mock_cg, mock_qinfo, mock_dd):
@@ -603,147 +603,8 @@ class OtherFunctionTestCase(base.IronicLibTestCase):
                           disk_utils.is_block_device, device)
         mock_os.assert_has_calls([mock.call(device)] * 2)
 
-    @mock.patch.object(os.path, 'exists', return_value=False, autospec=True)
-    def test_qemu_img_info_path_doesnt_exist(self, path_exists_mock):
-        self.assertRaises(FileNotFoundError, disk_utils.qemu_img_info, 'noimg')
-        path_exists_mock.assert_called_once_with('noimg')
-
-    @mock.patch.object(utils, 'execute', return_value=('out', 'err'),
-                       autospec=True)
-    @mock.patch.object(imageutils, 'QemuImgInfo', autospec=True)
-    @mock.patch.object(os.path, 'exists', return_value=True, autospec=True)
-    def test_qemu_img_info_path_exists(self, path_exists_mock,
-                                       qemu_img_info_mock, execute_mock):
-        disk_utils.qemu_img_info('img')
-        path_exists_mock.assert_called_once_with('img')
-        execute_mock.assert_called_once_with('env', 'LC_ALL=C', 'LANG=C',
-                                             'qemu-img', 'info', 'img',
-                                             '--output=json',
-                                             prlimit=mock.ANY)
-        qemu_img_info_mock.assert_called_once_with('out', format='json')
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image(self, execute_mock):
-        disk_utils.convert_image('source', 'dest', 'out_format')
-        execute_mock.assert_called_once_with(
-            'qemu-img', 'convert', '-O',
-            'out_format', 'source', 'dest',
-            run_as_root=False,
-            prlimit=mock.ANY,
-            use_standard_locale=True,
-            env_variables={'MALLOC_ARENA_MAX': '3'})
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image_flags(self, execute_mock):
-        disk_utils.convert_image('source', 'dest', 'out_format',
-                                 cache='directsync', out_of_order=True,
-                                 sparse_size='0')
-        execute_mock.assert_called_once_with(
-            'qemu-img', 'convert', '-O',
-            'out_format', '-t', 'directsync',
-            '-S', '0', '-W', 'source', 'dest',
-            run_as_root=False,
-            prlimit=mock.ANY,
-            use_standard_locale=True,
-            env_variables={'MALLOC_ARENA_MAX': '3'})
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image_retries(self, execute_mock):
-        ret_err = 'qemu: qemu_thread_create: Resource temporarily unavailable'
-        execute_mock.side_effect = [
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            ('', ''),
-        ]
-
-        disk_utils.convert_image('source', 'dest', 'out_format')
-        convert_call = mock.call('qemu-img', 'convert', '-O',
-                                 'out_format', 'source', 'dest',
-                                 run_as_root=False,
-                                 prlimit=mock.ANY,
-                                 use_standard_locale=True,
-                                 env_variables={'MALLOC_ARENA_MAX': '3'})
-        execute_mock.assert_has_calls([
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-        ])
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image_retries_alternate_error(self, execute_mock):
-        ret_err = 'Failed to allocate memory: Cannot allocate memory\n'
-        execute_mock.side_effect = [
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            ('', ''),
-        ]
-
-        disk_utils.convert_image('source', 'dest', 'out_format')
-        convert_call = mock.call('qemu-img', 'convert', '-O',
-                                 'out_format', 'source', 'dest',
-                                 run_as_root=False,
-                                 prlimit=mock.ANY,
-                                 use_standard_locale=True,
-                                 env_variables={'MALLOC_ARENA_MAX': '3'})
-        execute_mock.assert_has_calls([
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-        ])
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image_retries_and_fails(self, execute_mock):
-        ret_err = 'qemu: qemu_thread_create: Resource temporarily unavailable'
-        execute_mock.side_effect = [
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            processutils.ProcessExecutionError(stderr=ret_err), ('', ''),
-            processutils.ProcessExecutionError(stderr=ret_err),
-        ]
-
-        self.assertRaises(processutils.ProcessExecutionError,
-                          disk_utils.convert_image,
-                          'source', 'dest', 'out_format')
-        convert_call = mock.call('qemu-img', 'convert', '-O',
-                                 'out_format', 'source', 'dest',
-                                 run_as_root=False,
-                                 prlimit=mock.ANY,
-                                 use_standard_locale=True,
-                                 env_variables={'MALLOC_ARENA_MAX': '3'})
-        execute_mock.assert_has_calls([
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-            mock.call('sync'),
-            convert_call,
-        ])
-
-    @mock.patch.object(utils, 'execute', autospec=True)
-    def test_convert_image_just_fails(self, execute_mock):
-        ret_err = 'Aliens'
-        execute_mock.side_effect = [
-            processutils.ProcessExecutionError(stderr=ret_err),
-        ]
-
-        self.assertRaises(processutils.ProcessExecutionError,
-                          disk_utils.convert_image,
-                          'source', 'dest', 'out_format')
-        convert_call = mock.call('qemu-img', 'convert', '-O',
-                                 'out_format', 'source', 'dest',
-                                 run_as_root=False,
-                                 prlimit=mock.ANY,
-                                 use_standard_locale=True,
-                                 env_variables={'MALLOC_ARENA_MAX': '3'})
-        execute_mock.assert_has_calls([
-            convert_call,
-        ])
-
     @mock.patch.object(os.path, 'getsize', autospec=True)
-    @mock.patch.object(disk_utils, 'qemu_img_info', autospec=True)
+    @mock.patch.object(qemu_img, 'image_info', autospec=True)
     def test_get_image_mb(self, mock_qinfo, mock_getsize):
         mb = 1024 * 1024
 
