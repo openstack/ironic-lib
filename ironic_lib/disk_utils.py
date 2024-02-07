@@ -23,13 +23,11 @@ import warnings
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_utils import excutils
-from oslo_utils import imageutils
-from oslo_utils import units
-import tenacity
 
 from ironic_lib.common.i18n import _
 from ironic_lib import disk_partitioner
 from ironic_lib import exception
+from ironic_lib import qemu_img
 from ironic_lib import utils
 
 
@@ -56,13 +54,6 @@ opts = [
                default=10,
                help='Maximum number of attempts to try to read the '
                     'partition.'),
-    cfg.IntOpt('image_convert_memory_limit',
-               default=2048,
-               help='Memory limit for "qemu-img convert" in MiB. Implemented '
-                    'via the address space resource limit.'),
-    cfg.IntOpt('image_convert_attempts',
-               default=3,
-               help='Number of attempts to convert an image.'),
 ]
 
 CONF = cfg.CONF
@@ -83,17 +74,9 @@ GPT_SIZE_SECTORS = 33
 # Maximum disk size supported by MBR is 2TB (2 * 1024 * 1024 MB)
 MAX_DISK_SIZE_MB_SUPPORTED_BY_MBR = 2097152
 
-# Limit the memory address space to 1 GiB when running qemu-img
-QEMU_IMG_LIMITS = None
-
-
-def _qemu_img_limits():
-    global QEMU_IMG_LIMITS
-    if QEMU_IMG_LIMITS is None:
-        QEMU_IMG_LIMITS = processutils.ProcessLimits(
-            address_space=CONF.disk_utils.image_convert_memory_limit
-            * units.Mi)
-    return QEMU_IMG_LIMITS
+# Backward compatibility, do not use
+qemu_img_info = qemu_img.image_info
+convert_image = qemu_img.convert_image
 
 
 def list_partitions(device):
@@ -485,73 +468,12 @@ def dd(src, dst, conv_flags=None):
              *extra_args)
 
 
-def qemu_img_info(path):
-    """Return an object containing the parsed output from qemu-img info."""
-    if not os.path.exists(path):
-        raise FileNotFoundError(_("File %s does not exist") % path)
-
-    out, err = utils.execute('env', 'LC_ALL=C', 'LANG=C',
-                             'qemu-img', 'info', path,
-                             '--output=json',
-                             prlimit=_qemu_img_limits())
-    return imageutils.QemuImgInfo(out, format='json')
-
-
-def _retry_on_res_temp_unavailable(exc):
-    if (isinstance(exc, processutils.ProcessExecutionError)
-            and ('Resource temporarily unavailable' in exc.stderr
-                 or 'Cannot allocate memory' in exc.stderr)):
-        return True
-    return False
-
-
-@tenacity.retry(
-    retry=tenacity.retry_if_exception(_retry_on_res_temp_unavailable),
-    stop=tenacity.stop_after_attempt(CONF.disk_utils.image_convert_attempts),
-    reraise=True)
-def convert_image(source, dest, out_format, run_as_root=False, cache=None,
-                  out_of_order=False, sparse_size=None):
-    """Convert image to other format."""
-    cmd = ['qemu-img', 'convert', '-O', out_format]
-    if cache is not None:
-        cmd += ['-t', cache]
-    if sparse_size is not None:
-        cmd += ['-S', sparse_size]
-    if out_of_order:
-        cmd.append('-W')
-    cmd += [source, dest]
-    # NOTE(TheJulia): Statically set the MALLOC_ARENA_MAX to prevent leaking
-    # and the creation of new malloc arenas which will consume the system
-    # memory. If limited to 1, qemu-img consumes ~250 MB of RAM, but when
-    # another thread tries to access a locked section of memory in use with
-    # another thread, then by default a new malloc arena is created,
-    # which essentially balloons the memory requirement of the machine.
-    # Default for qemu-img is 8 * nCPU * ~250MB (based on defaults +
-    # thread/code/process/library overhead. In other words, 64 GB. Limiting
-    # this to 3 keeps the memory utilization in happy cases below the overall
-    # threshold which is in place in case a malicious image is attempted to
-    # be passed through qemu-img.
-    env_vars = {'MALLOC_ARENA_MAX': '3'}
-    try:
-        utils.execute(*cmd, run_as_root=run_as_root,
-                      prlimit=_qemu_img_limits(),
-                      use_standard_locale=True,
-                      env_variables=env_vars)
-    except processutils.ProcessExecutionError as e:
-        if ('Resource temporarily unavailable' in e.stderr
-            or 'Cannot allocate memory' in e.stderr):
-            LOG.debug('Failed to convert image, retrying. Error: %s', e)
-            # Sync disk caches before the next attempt
-            utils.execute('sync')
-        raise
-
-
 def populate_image(src, dst, conv_flags=None):
-    data = qemu_img_info(src)
+    data = qemu_img.image_info(src)
     if data.file_format == 'raw':
         dd(src, dst, conv_flags=conv_flags)
     else:
-        convert_image(src, dst, 'raw', True, sparse_size='0')
+        qemu_img.convert_image(src, dst, 'raw', True, sparse_size='0')
 
 
 def block_uuid(dev):
@@ -575,7 +497,7 @@ def get_image_mb(image_path, virtual_size=True):
     if not virtual_size:
         image_byte = os.path.getsize(image_path)
     else:
-        data = qemu_img_info(image_path)
+        data = qemu_img.image_info(image_path)
         image_byte = data.virtual_size
 
     # round up size to MB
