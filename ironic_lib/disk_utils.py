@@ -700,6 +700,7 @@ def trigger_device_rescan(device, attempts=None):
     # kernel.
     udev_settle()
     partprobe(device, attempts=attempts)
+    udev_settle()
     try:
         # Also verify that the partitioning is correct now.
         utils.execute('sgdisk', '-v', device, run_as_root=True)

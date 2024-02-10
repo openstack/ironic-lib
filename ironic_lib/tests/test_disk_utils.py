@@ -260,6 +260,7 @@ class MakePartitionsTestCase(base.IronicLibTestCase):
                       mock.call('udevadm', 'settle'),
                       mock.call('partprobe', self.dev, attempts=10,
                                 run_as_root=True),
+                      mock.call('udevadm', 'settle'),
                       mock.call('sgdisk', '-v', self.dev, run_as_root=True)]
 
         mock_exc.assert_has_calls([parted_call, fuser_call] + sync_calls)
@@ -730,6 +731,7 @@ class TriggerDeviceRescanTestCase(base.IronicLibTestCase):
             mock.call('sync'),
             mock.call('udevadm', 'settle'),
             mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=10),
+            mock.call('udevadm', 'settle'),
             mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
         ])
 
@@ -740,11 +742,12 @@ class TriggerDeviceRescanTestCase(base.IronicLibTestCase):
             mock.call('sync'),
             mock.call('udevadm', 'settle'),
             mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=1),
+            mock.call('udevadm', 'settle'),
             mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
         ])
 
     def test_fails(self, mock_execute):
-        mock_execute.side_effect = [('', '')] * 3 + [
+        mock_execute.side_effect = [('', '')] * 4 + [
             processutils.ProcessExecutionError
         ]
         self.assertFalse(disk_utils.trigger_device_rescan('/dev/fake'))
@@ -752,6 +755,7 @@ class TriggerDeviceRescanTestCase(base.IronicLibTestCase):
             mock.call('sync'),
             mock.call('udevadm', 'settle'),
             mock.call('partprobe', '/dev/fake', run_as_root=True, attempts=10),
+            mock.call('udevadm', 'settle'),
             mock.call('sgdisk', '-v', '/dev/fake', run_as_root=True),
         ])
 
