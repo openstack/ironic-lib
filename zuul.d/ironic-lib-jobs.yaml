@@ -35,6 +35,7 @@
       devstack_localrc:
         IRONIC_TEMPEST_WHOLE_DISK_IMAGE: True
         IRONIC_VM_EPHEMERAL_DISK: 0
+        IRONIC_RAMDISK_TYPE: tinyipa
 
 - job:
     name: ironic-lib-bios-ipmi-src
@@ -48,3 +49,5 @@
         s-proxy: True
       devstack_localrc:
         IRONIC_BOOT_MODE: bios
+        IRONIC_RAMDISK_TYPE: tinyipa
+
