@@ -11,6 +11,7 @@
 # under the License.
 
 import socket
+import sys
 from unittest import mock
 
 from oslo_config import cfg
@@ -37,7 +38,7 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal'}, info.properties)
+        self.assertByteDictEqual({'path': '/baremetal'}, info.properties)
 
     def test_with_params(self, mock_zc):
         CONF.set_override('params', {'answer': 'none', 'foo': 'bar'},
@@ -50,10 +51,10 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal',
-                          'answer': 42,
-                          'foo': 'bar'},
-                         info.properties)
+        self.assertByteDictEqual({'path': '/baremetal',
+                                  'answer': 42,
+                                  'foo': 'bar'},
+                                 info.properties)
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
     def test_with_race(self, mock_sleep, mock_zc):
@@ -81,7 +82,17 @@ class RegisterServiceTestCase(base.IronicLibTestCase):
         self.assertEqual('_openstack._tcp.local.', info.type)
         self.assertEqual('baremetal._openstack._tcp.local.', info.name)
         self.assertEqual('127.0.0.1', socket.inet_ntoa(info.addresses[0]))
-        self.assertEqual({'path': '/baremetal'}, info.properties)
+        self.assertByteDictEqual({'path': '/baremetal'}, info.properties)
+
+    def assertByteDictEqual(self, expected, actual):
+        # Python 3.9+ returns bytes for keys and values
+        if sys.version_info.major == 3 and sys.version_info.minor <= 8:
+            self.assertEqual(expected, actual)
+            return
+        self.assertEqual(
+            {k.encode(): str(v).encode() for k, v in expected.items()},
+            actual
+        )
 
     @mock.patch.object(mdns.time, 'sleep', autospec=True)
     def test_failure(self, mock_sleep, mock_zc):

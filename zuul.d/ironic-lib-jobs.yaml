@@ -16,6 +16,7 @@
     vars:
       tempest_test_timeout: 1800
       devstack_localrc:
+        IRONIC_RAMDISK_TYPE: tinyipa 
         BUILD_TIMEOUT: 900
         IRONIC_BUILD_DEPLOY_RAMDISK: True
         IRONIC_TEMPEST_BUILD_TIMEOUT: 900
