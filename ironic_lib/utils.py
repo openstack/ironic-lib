@@ -96,8 +96,20 @@ def execute(*cmd, use_standard_locale=False, log_stdout=True, **kwargs):
 
     def _log(stdout, stderr):
         if log_stdout:
-            LOG.debug('Command stdout is: "%s"', stdout)
-        LOG.debug('Command stderr is: "%s"', stderr)
+            try:
+                LOG.debug('Command stdout is: "%s"', stdout)
+            except UnicodeEncodeError:
+                LOG.debug('stdout contains invalid UTF-8 characters')
+                stdout = (stdout.encode('utf8', 'surrogateescape')
+                          .decode('utf8', 'ignore'))
+                LOG.debug('Command stdout is: "%s"', stdout)
+        try:
+            LOG.debug('Command stderr is: "%s"', stderr)
+        except UnicodeEncodeError:
+            LOG.debug('stderr contains invalid UTF-8 characters')
+            stderr = (stderr.encode('utf8', 'surrogateescape')
+                      .decode('utf8', 'ignore'))
+            LOG.debug('Command stderr is: "%s"', stderr)
 
     try:
         result = processutils.execute(*cmd, **kwargs)
