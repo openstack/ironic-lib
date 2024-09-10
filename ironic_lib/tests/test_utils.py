@@ -72,34 +72,6 @@ class ExecuteTestCase(base.IronicLibTestCase):
         execute_mock.assert_called_once_with('foo',
                                              env_variables={'foo': 'bar'})
 
-    def test_execute_without_root_helper(self):
-        CONF.set_override('root_helper', None, group='ironic_lib')
-        with mock.patch.object(
-                processutils, 'execute', autospec=True) as execute_mock:
-            utils.execute('foo', run_as_root=False)
-            execute_mock.assert_called_once_with('foo', run_as_root=False)
-
-    def test_execute_without_root_helper_run_as_root(self):
-        CONF.set_override('root_helper', None, group='ironic_lib')
-        with mock.patch.object(
-                processutils, 'execute', autospec=True) as execute_mock:
-            utils.execute('foo', run_as_root=True)
-            execute_mock.assert_called_once_with('foo', run_as_root=False)
-
-    def test_execute_with_root_helper(self):
-        with mock.patch.object(
-                processutils, 'execute', autospec=True) as execute_mock:
-            utils.execute('foo', run_as_root=False)
-            execute_mock.assert_called_once_with('foo', run_as_root=False)
-
-    def test_execute_with_root_helper_run_as_root(self):
-        with mock.patch.object(
-                processutils, 'execute', autospec=True) as execute_mock:
-            utils.execute('foo', run_as_root=True)
-            execute_mock.assert_called_once_with(
-                'foo', run_as_root=True,
-                root_helper=CONF.ironic_lib.root_helper)
-
     @mock.patch.object(utils, 'LOG', autospec=True)
     def _test_execute_with_log_stdout(self, log_mock, log_stdout=None):
         with mock.patch.object(
@@ -147,13 +119,10 @@ class MkfsTestCase(base.IronicLibTestCase):
         utils.mkfs('swap', '/my/swap/block/dev')
 
         expected = [mock.call('mkfs', '-t', 'ext4', '-F', '/my/block/dev',
-                              run_as_root=True,
                               use_standard_locale=True),
                     mock.call('mkfs', '-t', 'msdos', '/my/msdos/block/dev',
-                              run_as_root=True,
                               use_standard_locale=True),
                     mock.call('mkswap', '/my/swap/block/dev',
-                              run_as_root=True,
                               use_standard_locale=True)]
         self.assertEqual(expected, execute_mock.call_args_list)
 
@@ -164,13 +133,13 @@ class MkfsTestCase(base.IronicLibTestCase):
         utils.mkfs('swap', '/my/swap/block/dev', 'swap-vol')
 
         expected = [mock.call('mkfs', '-t', 'ext4', '-F', '-L', 'ext4-vol',
-                              '/my/block/dev', run_as_root=True,
+                              '/my/block/dev',
                               use_standard_locale=True),
                     mock.call('mkfs', '-t', 'msdos', '-n', 'msdos-vol',
-                              '/my/msdos/block/dev', run_as_root=True,
+                              '/my/msdos/block/dev',
                               use_standard_locale=True),
                     mock.call('mkswap', '-L', 'swap-vol',
-                              '/my/swap/block/dev', run_as_root=True,
+                              '/my/swap/block/dev',
                               use_standard_locale=True)]
         self.assertEqual(expected, execute_mock.call_args_list)
 
@@ -548,8 +517,8 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertIs(path, mock_temp.return_value)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', mock_temp.return_value,
-                      run_as_root=True, attempts=1, delay_on_retry=True),
-            mock.call("umount", mock_temp.return_value, run_as_root=True,
+                      attempts=1, delay_on_retry=True),
+            mock.call("umount", mock_temp.return_value,
                       attempts=3, delay_on_retry=True),
         ])
         mock_rmtree.assert_called_once_with(mock_temp.return_value)
@@ -558,9 +527,9 @@ class MountedTestCase(base.IronicLibTestCase):
         with utils.mounted('/dev/fake', '/mnt/fake') as path:
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
-            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True,
+            mock.call("mount", '/dev/fake', '/mnt/fake',
                       attempts=1, delay_on_retry=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True,
+            mock.call("umount", '/mnt/fake',
                       attempts=3, delay_on_retry=True),
         ])
         self.assertFalse(mock_temp.called)
@@ -572,8 +541,8 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', '/mnt/fake', '-o', 'ro,foo=bar',
-                      run_as_root=True, attempts=1, delay_on_retry=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake',
                       attempts=3, delay_on_retry=True),
         ])
 
@@ -583,8 +552,8 @@ class MountedTestCase(base.IronicLibTestCase):
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
             mock.call("mount", '/dev/fake', '/mnt/fake', '-t', 'iso9660',
-                      run_as_root=True, attempts=1, delay_on_retry=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True,
+                      attempts=1, delay_on_retry=True),
+            mock.call("umount", '/mnt/fake',
                       attempts=3, delay_on_retry=True),
         ])
 
@@ -593,7 +562,6 @@ class MountedTestCase(base.IronicLibTestCase):
         self.assertRaises(OSError, utils.mounted('/dev/fake').__enter__)
         mock_execute.assert_called_once_with("mount", '/dev/fake',
                                              mock_temp.return_value,
-                                             run_as_root=True,
                                              attempts=1,
                                              delay_on_retry=True)
         mock_rmtree.assert_called_once_with(mock_temp.return_value)
@@ -604,9 +572,9 @@ class MountedTestCase(base.IronicLibTestCase):
         with utils.mounted('/dev/fake', '/mnt/fake') as path:
             self.assertEqual('/mnt/fake', path)
         mock_execute.assert_has_calls([
-            mock.call("mount", '/dev/fake', '/mnt/fake', run_as_root=True,
+            mock.call("mount", '/dev/fake', '/mnt/fake',
                       attempts=1, delay_on_retry=True),
-            mock.call("umount", '/mnt/fake', run_as_root=True,
+            mock.call("umount", '/mnt/fake',
                       attempts=3, delay_on_retry=True),
         ])
         self.assertFalse(mock_rmtree.called)

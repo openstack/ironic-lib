@@ -29,9 +29,9 @@ import shlex
 import shutil
 import tempfile
 from urllib import parse as urlparse
+import warnings
 
 from oslo_concurrency import processutils
-from oslo_config import cfg
 from oslo_utils import excutils
 from oslo_utils import specs_matcher
 from oslo_utils import strutils
@@ -40,15 +40,6 @@ from oslo_utils import units
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
 
-utils_opts = [
-    cfg.StrOpt('root_helper',
-               default='sudo ironic-rootwrap /etc/ironic/rootwrap.conf',
-               help='Command that is prefixed to commands that are run as '
-                    'root. If not specified, no commands are run as root.'),
-]
-
-CONF = cfg.CONF
-CONF.register_opts(utils_opts, group='ironic_lib')
 
 LOG = logging.getLogger(__name__)
 
@@ -85,13 +76,9 @@ def execute(*cmd, use_standard_locale=False, log_stdout=True, **kwargs):
         env['LC_ALL'] = 'C'
         kwargs['env_variables'] = env
 
-    # If root_helper config is not specified, no commands are run as root.
-    run_as_root = kwargs.get('run_as_root', False)
-    if run_as_root:
-        if not CONF.ironic_lib.root_helper:
-            kwargs['run_as_root'] = False
-        else:
-            kwargs['root_helper'] = CONF.ironic_lib.root_helper
+    if kwargs.pop('run_as_root', False):
+        warnings.warn("run_as_root is deprecated and has no effect",
+                      DeprecationWarning)
 
     def _log(stdout, stderr):
         if log_stdout:
@@ -166,7 +153,7 @@ def mkfs(fs, path, label=None):
         args.extend([label_opt, label])
     args.append(path)
     try:
-        execute(*args, run_as_root=True, use_standard_locale=True)
+        execute(*args, use_standard_locale=True)
     except processutils.ProcessExecutionError as e:
         with excutils.save_and_reraise_exception() as ctx:
             if os.strerror(errno.ENOENT) in e.stderr:
@@ -203,7 +190,7 @@ def dd(src, dst, *args):
     """
     LOG.debug("Starting dd process.")
     execute('dd', 'if=%s' % src, 'of=%s' % dst, *args,
-            use_standard_locale=True, run_as_root=True)
+            use_standard_locale=True)
 
 
 def is_http_url(url):
@@ -213,7 +200,7 @@ def is_http_url(url):
 
 def list_opts():
     """Entry point for oslo-config-generator."""
-    return [('ironic_lib', utils_opts)]
+    return [('ironic_lib', [])]  # placeholder
 
 
 def _extract_hint_operator_and_values(hint_expression, hint_name):
@@ -551,15 +538,15 @@ def mounted(source, dest=None, opts=None, fs_type=None,
 
     mounted = False
     try:
-        execute("mount", source, dest, *params, run_as_root=True,
-                attempts=mount_attempts, delay_on_retry=True)
+        execute("mount", source, dest, *params, attempts=mount_attempts,
+                delay_on_retry=True)
         mounted = True
         yield dest
     finally:
         if mounted:
             try:
-                execute("umount", dest, run_as_root=True,
-                        attempts=umount_attempts, delay_on_retry=True)
+                execute("umount", dest, attempts=umount_attempts,
+                        delay_on_retry=True)
             except (EnvironmentError,
                     processutils.ProcessExecutionError) as exc:
                 LOG.warning(
