@@ -6,4 +6,3 @@ oslo.utils>=3.34.0 # Apache-2.0
 zeroconf>=0.24.0 # LGPL
 bcrypt>=3.1.3 # Apache-2.0
 WebOb>=1.7.1 # MIT
-tenacity>=6.2.0 # Apache-2.0

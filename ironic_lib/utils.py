@@ -36,7 +36,6 @@ from oslo_utils import excutils
 from oslo_utils import specs_matcher
 from oslo_utils import strutils
 from oslo_utils import units
-import tenacity
 
 from ironic_lib.common.i18n import _
 from ironic_lib import exception
@@ -499,89 +498,6 @@ def match_root_device_hints(devices, root_device_hints):
         LOG.info('Root device found! The device "%s" matches the root '
                  'device hints %s', dev, root_device_hints)
         return dev
-
-
-def wait_for_disk_to_become_available(device):
-    """Wait for a disk device to become available.
-
-    Waits for a disk device to become available for use by
-    waiting until all process locks on the device have been
-    released.
-
-    Timeout and iteration settings come from the configuration
-    options used by the in-library disk_partitioner:
-    ``check_device_interval`` and ``check_device_max_retries``.
-
-    :params device: The path to the device.
-    :raises: IronicException If the disk fails to become
-        available.
-    """
-    pids = ['']
-    stderr = ['']
-    interval = CONF.disk_partitioner.check_device_interval
-    max_retries = CONF.disk_partitioner.check_device_max_retries
-
-    def _wait_for_disk():
-        # A regex is likely overkill here, but variations in fuser
-        # means we should likely use it.
-        fuser_pids_re = re.compile(r'\d+')
-
-        # There are 'psmisc' and 'busybox' versions of the 'fuser' program. The
-        # 'fuser' programs differ in how they output data to stderr.  The
-        # busybox version does not output the filename to stderr, while the
-        # standard 'psmisc' version does output the filename to stderr.  How
-        # they output to stdout is almost identical in that only the PIDs are
-        # output to stdout, with the 'psmisc' version adding a leading space
-        # character to the list of PIDs.
-        try:
-            # NOTE(ifarkas): fuser returns a non-zero return code if none of
-            #                the specified files is accessed.
-            # NOTE(TheJulia): fuser does not report LVM devices as in use
-            #                 unless the LVM device-mapper device is the
-            #                 device that is directly polled.
-            # NOTE(TheJulia): The -m flag allows fuser to reveal data about
-            #                 mounted filesystems, which should be considered
-            #                 busy/locked. That being said, it is not used
-            #                 because busybox fuser has a different behavior.
-            # NOTE(TheJuia): fuser outputs a list of found PIDs to stdout.
-            #                All other text is returned via stderr, and the
-            #                output to a terminal is merged as a result.
-            out, err = execute('fuser', device, check_exit_code=[0, 1],
-                               run_as_root=True)
-
-            if not out and not err:
-                return True
-
-            stderr[0] = err
-            # NOTE: findall() returns a list of matches, or an empty list if no
-            # matches
-            pids[0] = fuser_pids_re.findall(out)
-
-        except processutils.ProcessExecutionError as exc:
-            LOG.warning('Failed to check the device %(device)s with fuser:'
-                        ' %(err)s', {'device': device, 'err': exc})
-        return False
-
-    retry = tenacity.retry(
-        retry=tenacity.retry_if_result(lambda r: not r),
-        stop=tenacity.stop_after_attempt(max_retries),
-        wait=tenacity.wait_fixed(interval),
-        reraise=True)
-    try:
-        retry(_wait_for_disk)()
-    except tenacity.RetryError:
-        if pids[0]:
-            raise exception.IronicException(
-                _('Processes with the following PIDs are holding '
-                  'device %(device)s: %(pids)s. '
-                  'Timed out waiting for completion.')
-                % {'device': device, 'pids': ', '.join(pids[0])})
-        else:
-            raise exception.IronicException(
-                _('Fuser exited with "%(fuser_err)s" while checking '
-                  'locks for device %(device)s. Timed out waiting for '
-                  'completion.')
-                % {'device': device, 'fuser_err': stderr[0]})
 
 
 def get_route_source(dest, ignore_link_local=True):
