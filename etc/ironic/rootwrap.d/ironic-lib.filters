@@ -1,5 +1,0 @@
-# An ironic-lib.filters to be used with rootwrap command.
-# This file should be owned by (and only-writeable by) the root user.
-
-[Filters]
-# Left for backward compatibility only, do not use.
